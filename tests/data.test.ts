@@ -5,7 +5,7 @@ import testsData from "../src/data/tests.json";
 import type { CareerTest, Profession, Question } from "../src/types/test";
 
 const professions = professionsData as Profession[];
-const { questions, tests } = testsData as {
+const { questions, tests } = testsData as unknown as {
   questions: Question[];
   tests: CareerTest[];
 };
