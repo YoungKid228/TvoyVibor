@@ -1,0 +1,31 @@
+{
+  "questions": [
+    {
+      "id": "draft-q1",
+      "text": "Черновой вопрос 1 (заменяется финальным контентом)",
+      "professionGroupId": "economist",
+      "options": [
+        { "id": "draft-q1-a", "label": "Да", "scores": { "economist": 2 } },
+        { "id": "draft-q1-b", "label": "Нет", "scores": { "insurance_agent": 1 } }
+      ]
+    },
+    {
+      "id": "draft-q2",
+      "text": "Черновой вопрос 2 (заменяется финальным контентом)",
+      "professionGroupId": "insurance_agent",
+      "options": [
+        { "id": "draft-q2-a", "label": "Да", "scores": { "insurance_agent": 2 } },
+        { "id": "draft-q2-b", "label": "Нет", "scores": { "economist": 1 } }
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "draft-test",
+      "directionId": "economics",
+      "audience": "school",
+      "title": "Черновой тест (для разработки)",
+      "questionIds": ["draft-q1", "draft-q2"]
+    }
+  ]
+}
