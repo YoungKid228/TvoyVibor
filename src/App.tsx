@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AppShell from "./components/AppShell";
+import InstallGate from "./components/InstallGate";
 import professionsData from "./data/professions.json";
 import testsData from "./data/tests.json";
 import type { CareerTest, Profession, Question } from "./types/test";
@@ -16,6 +17,7 @@ export default function App() {
 
   return (
     <AppShell>
+      <InstallGate>
       {view.name === "home" && (
         <HomePage
           tests={tests}
@@ -48,6 +50,7 @@ export default function App() {
           />
         );
       })()}
+      </InstallGate>
     </AppShell>
   );
 }
