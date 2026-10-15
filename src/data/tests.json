@@ -1,31 +1,230 @@
 {
   "questions": [
     {
-      "id": "draft-q1",
-      "text": "Черновой вопрос 1 (заменяется финальным контентом)",
+      "id": "stub-q01",
+      "text": "Заглушечный вопрос 01 (заменяется финальным контентом)",
       "professionGroupId": "economist",
       "options": [
-        { "id": "draft-q1-a", "label": "Да", "scores": { "economist": 2 } },
-        { "id": "draft-q1-b", "label": "Нет", "scores": { "insurance_agent": 1 } }
+        { "id": "stub-q01-a", "label": "Совсем не про меня", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q01-b", "label": "Нейтрально", "scores": { "economist": 1, "insurance_agent": 1 } },
+        { "id": "stub-q01-c", "label": "Точно про меня", "scores": { "economist": 2, "financial_analyst": 1 } }
       ]
     },
     {
-      "id": "draft-q2",
-      "text": "Черновой вопрос 2 (заменяется финальным контентом)",
+      "id": "stub-q02",
+      "text": "Заглушечный вопрос 02 (заменяется финальным контентом)",
+      "professionGroupId": "accountant",
+      "options": [
+        { "id": "stub-q02-a", "label": "Совсем не про меня", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q02-b", "label": "Нейтрально", "scores": { "accountant": 1 } },
+        { "id": "stub-q02-c", "label": "Точно про меня", "scores": { "accountant": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q03",
+      "text": "Заглушечный вопрос 03 (заменяется финальным контентом)",
       "professionGroupId": "insurance_agent",
       "options": [
-        { "id": "draft-q2-a", "label": "Да", "scores": { "insurance_agent": 2 } },
-        { "id": "draft-q2-b", "label": "Нет", "scores": { "economist": 1 } }
+        { "id": "stub-q03-a", "label": "Совсем не про меня", "scores": { "accountant": 1 } },
+        { "id": "stub-q03-b", "label": "Нейтрально", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q03-c", "label": "Точно про меня", "scores": { "insurance_agent": 2, "credit_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q04",
+      "text": "Заглушечный вопрос 04 (заменяется финальным контентом)",
+      "professionGroupId": "economic_security",
+      "options": [
+        { "id": "stub-q04-a", "label": "Совсем не про меня", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q04-b", "label": "Нейтрально", "scores": { "economic_security": 1 } },
+        { "id": "stub-q04-c", "label": "Точно про меня", "scores": { "economic_security": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q05",
+      "text": "Заглушечный вопрос 05 (заменяется финальным контентом)",
+      "professionGroupId": "business_analyst",
+      "options": [
+        { "id": "stub-q05-a", "label": "Совсем не про меня", "scores": { "accountant": 1 } },
+        { "id": "stub-q05-b", "label": "Нейтрально", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q05-c", "label": "Точно про меня", "scores": { "business_analyst": 2, "economist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q06",
+      "text": "Заглушечный вопрос 06 (заменяется финальным контентом)",
+      "professionGroupId": "credit_specialist",
+      "options": [
+        { "id": "stub-q06-a", "label": "Совсем не про меня", "scores": { "economist": 1 } },
+        { "id": "stub-q06-b", "label": "Нейтрально", "scores": { "credit_specialist": 1 } },
+        { "id": "stub-q06-c", "label": "Точно про меня", "scores": { "credit_specialist": 2, "insurance_agent": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q07",
+      "text": "Заглушечный вопрос 07 (заменяется финальным контентом)",
+      "professionGroupId": "financial_analyst",
+      "options": [
+        { "id": "stub-q07-a", "label": "Совсем не про меня", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q07-b", "label": "Нейтрально", "scores": { "financial_analyst": 1 } },
+        { "id": "stub-q07-c", "label": "Точно про меня", "scores": { "financial_analyst": 2, "economist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q08",
+      "text": "Заглушечный вопрос 08 (заменяется финальным контентом)",
+      "professionGroupId": "procurement_specialist",
+      "options": [
+        { "id": "stub-q08-a", "label": "Совсем не про меня", "scores": { "tax_consultant": 1 } },
+        { "id": "stub-q08-b", "label": "Нейтрально", "scores": { "procurement_specialist": 1 } },
+        { "id": "stub-q08-c", "label": "Точно про меня", "scores": { "procurement_specialist": 2, "credit_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q09",
+      "text": "Заглушечный вопрос 09 (заменяется финальным контентом)",
+      "professionGroupId": "tax_consultant",
+      "options": [
+        { "id": "stub-q09-a", "label": "Совсем не про меня", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q09-b", "label": "Нейтрально", "scores": { "tax_consultant": 1 } },
+        { "id": "stub-q09-c", "label": "Точно про меня", "scores": { "tax_consultant": 2, "accountant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q10",
+      "text": "Заглушечный вопрос 10 (заменяется финальным контентом)",
+      "professionGroupId": "budgeting_specialist",
+      "options": [
+        { "id": "stub-q10-a", "label": "Совсем не про меня", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q10-b", "label": "Нейтрально", "scores": { "budgeting_specialist": 1 } },
+        { "id": "stub-q10-c", "label": "Точно про меня", "scores": { "budgeting_specialist": 2, "accountant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q11",
+      "text": "Заглушечный вопрос 11 (заменяется финальным контентом)",
+      "professionGroupId": "economist",
+      "options": [
+        { "id": "stub-q11-a", "label": "Совсем не про меня", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q11-b", "label": "Нейтрально", "scores": { "economist": 1 } },
+        { "id": "stub-q11-c", "label": "Точно про меня", "scores": { "economist": 2, "economic_security": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q12",
+      "text": "Заглушечный вопрос 12 (заменяется финальным контентом)",
+      "professionGroupId": "accountant",
+      "options": [
+        { "id": "stub-q12-a", "label": "Совсем не про меня", "scores": { "procurement_specialist": 1 } },
+        { "id": "stub-q12-b", "label": "Нейтрально", "scores": { "accountant": 1 } },
+        { "id": "stub-q12-c", "label": "Точно про меня", "scores": { "accountant": 2, "budgeting_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q13",
+      "text": "Заглушечный вопрос 13 (заменяется финальным контентом)",
+      "professionGroupId": "insurance_agent",
+      "options": [
+        { "id": "stub-q13-a", "label": "Совсем не про меня", "scores": { "economic_security": 1 } },
+        { "id": "stub-q13-b", "label": "Нейтрально", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q13-c", "label": "Точно про меня", "scores": { "insurance_agent": 2, "business_analyst": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q14",
+      "text": "Заглушечный вопрос 14 (заменяется финальным контентом)",
+      "professionGroupId": "economic_security",
+      "options": [
+        { "id": "stub-q14-a", "label": "Совсем не про меня", "scores": { "credit_specialist": 1 } },
+        { "id": "stub-q14-b", "label": "Нейтрально", "scores": { "economic_security": 1 } },
+        { "id": "stub-q14-c", "label": "Точно про меня", "scores": { "economic_security": 2, "economist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q15",
+      "text": "Заглушечный вопрос 15 (заменяется финальным контентом)",
+      "professionGroupId": "business_analyst",
+      "options": [
+        { "id": "stub-q15-a", "label": "Совсем не про меня", "scores": { "budgeting_specialist": 1 } },
+        { "id": "stub-q15-b", "label": "Нейтрально", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q15-c", "label": "Точно про меня", "scores": { "business_analyst": 2, "procurement_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q16",
+      "text": "Заглушечный вопрос 16 (заменяется финальным контентом)",
+      "professionGroupId": "credit_specialist",
+      "options": [
+        { "id": "stub-q16-a", "label": "Совсем не про меня", "scores": { "economist": 1 } },
+        { "id": "stub-q16-b", "label": "Нейтрально", "scores": { "credit_specialist": 1 } },
+        { "id": "stub-q16-c", "label": "Точно про меня", "scores": { "credit_specialist": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q17",
+      "text": "Заглушечный вопрос 17 (заменяется финальным контентом)",
+      "professionGroupId": "financial_analyst",
+      "options": [
+        { "id": "stub-q17-a", "label": "Совсем не про меня", "scores": { "procurement_specialist": 1 } },
+        { "id": "stub-q17-b", "label": "Нейтрально", "scores": { "financial_analyst": 1 } },
+        { "id": "stub-q17-c", "label": "Точно про меня", "scores": { "financial_analyst": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q18",
+      "text": "Заглушечный вопрос 18 (заменяется финальным контентом)",
+      "professionGroupId": "procurement_specialist",
+      "options": [
+        { "id": "stub-q18-a", "label": "Совсем не про меня", "scores": { "economic_security": 1 } },
+        { "id": "stub-q18-b", "label": "Нейтрально", "scores": { "procurement_specialist": 1 } },
+        { "id": "stub-q18-c", "label": "Точно про меня", "scores": { "procurement_specialist": 2, "budgeting_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q19",
+      "text": "Заглушечный вопрос 19 (заменяется финальным контентом)",
+      "professionGroupId": "tax_consultant",
+      "options": [
+        { "id": "stub-q19-a", "label": "Совсем не про меня", "scores": { "insurance_agent": 1 } },
+        { "id": "stub-q19-b", "label": "Нейтрально", "scores": { "tax_consultant": 1 } },
+        { "id": "stub-q19-c", "label": "Точно про меня", "scores": { "tax_consultant": 2, "financial_analyst": 1 } }
+      ]
+    },
+    {
+      "id": "stub-q20",
+      "text": "Заглушечный вопрос 20 (заменяется финальным контентом)",
+      "professionGroupId": "budgeting_specialist",
+      "options": [
+        { "id": "stub-q20-a", "label": "Совсем не про меня", "scores": { "business_analyst": 1 } },
+        { "id": "stub-q20-b", "label": "Нейтрально", "scores": { "budgeting_specialist": 1 } },
+        { "id": "stub-q20-c", "label": "Точно про меня", "scores": { "budgeting_specialist": 2, "economist": 1 } }
       ]
     }
   ],
   "tests": [
     {
-      "id": "draft-test",
+      "id": "econ-school",
       "directionId": "economics",
       "audience": "school",
-      "title": "Черновой тест (для разработки)",
-      "questionIds": ["draft-q1", "draft-q2"]
+      "title": "Профориентационный тест: Экономика (для школьников)",
+      "questionIds": [
+        "stub-q01", "stub-q02", "stub-q03", "stub-q04", "stub-q05",
+        "stub-q06", "stub-q07", "stub-q08", "stub-q09", "stub-q10",
+        "stub-q11", "stub-q12", "stub-q13", "stub-q14", "stub-q15",
+        "stub-q16", "stub-q17", "stub-q18", "stub-q19", "stub-q20"
+      ]
+    },
+    {
+      "id": "econ-college",
+      "directionId": "economics",
+      "audience": "college_or_bachelor",
+      "title": "Профориентационный тест: Экономика (для СПО и бакалавриата)",
+      "questionIds": [
+        "stub-q01", "stub-q02", "stub-q03", "stub-q04", "stub-q05",
+        "stub-q06", "stub-q07", "stub-q08", "stub-q09", "stub-q10",
+        "stub-q11", "stub-q12", "stub-q13", "stub-q14", "stub-q15",
+        "stub-q16", "stub-q17", "stub-q18", "stub-q19", "stub-q20"
+      ]
     }
   ]
 }
