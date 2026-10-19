@@ -1,19 +1,28 @@
+import { SCALE_VALUES } from "../types/test";
+
 export type TestProgress = {
   testId: string;
-  answers: Record<string, string | null>;
+  answers: Record<string, number | null>;
   currentIndex: number;
   updatedAt: string;
 };
 
-export const STORAGE_KEY = "pgu-econ-progress-v1";
+export const STORAGE_KEY = "pgu-econ-progress-v2";
 
 function isValidProgress(value: unknown): value is TestProgress {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
+  if (typeof v.testId !== "string") return false;
+  if (typeof v.answers !== "object" || v.answers === null) return false;
+  for (const answer of Object.values(v.answers)) {
+    if (
+      answer !== null &&
+      !SCALE_VALUES.includes(answer as (typeof SCALE_VALUES)[number])
+    ) {
+      return false;
+    }
+  }
   return (
-    typeof v.testId === "string" &&
-    typeof v.answers === "object" &&
-    v.answers !== null &&
     typeof v.currentIndex === "number" &&
     typeof v.updatedAt === "string"
   );

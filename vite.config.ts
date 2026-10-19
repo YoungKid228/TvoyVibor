@@ -11,28 +11,49 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
+      /* Шрифт и gif должны кэшироваться для офлайн-запуска */
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,ttf,woff,woff2,gif}"],
+        /* Фото клуба и галереи ПГУ — отдельно от precache, кэшируются при первом просмотре */
+        runtimeCaching: [
+          {
+            urlPattern: /\/(club|pgu-gallery)\/.+\.jpg$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "app-photos",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
       manifest: {
-        name: "ПГУ: Экономика — твой выбор",
-        short_name: "ПГУ Экономика",
+        name: "Твой выбор",
+        short_name: "Твой выбор",
         description:
           "Профориентационные тесты направления «Экономика» ПГУ им. Шолом-Алейхема",
         start_url: "/",
         scope: "/",
         display: "standalone",
         lang: "ru",
-        background_color: "#f8fafc",
-        theme_color: "#0369a1",
+        background_color: "#fff7ed",
+        theme_color: "#c2410c",
         icons: [
           {
-            src: "/icons/icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
+            src: "/icons/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
             purpose: "any",
           },
           {
-            src: "/icons/icon-maskable.svg",
-            sizes: "any",
-            type: "image/svg+xml",
+            src: "/icons/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icons/icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
             purpose: "maskable",
           },
         ],

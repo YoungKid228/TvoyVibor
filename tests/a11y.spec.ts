@@ -4,6 +4,16 @@ test("no horizontal scroll at 320px width", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto("/");
   await page.getByTestId("continue-in-browser").click();
+
+  // главный экран
+  await expect(page.getByTestId("test-card").first()).toBeVisible();
+  const homeOverflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(homeOverflow).toBe(false);
+
+  // экран вопроса
   await page.getByTestId("test-card").first().click();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

@@ -1,0 +1,230 @@
+{
+  "questions": [
+    {
+      "id": "q01",
+      "text": "Мне нравится работать с цифрами, таблицами и расчётами.",
+      "professionGroupId": "accountant",
+      "options": [
+        { "id": "q01-1", "label": "Совсем не про меня", "scores": { "insurance_agent": 2, "business_analyst": 1 } },
+        { "id": "q01-2", "label": "Отчасти про меня", "scores": { "economist": 1, "accountant": 1 } },
+        { "id": "q01-3", "label": "Точно про меня", "scores": { "accountant": 3, "financial_analyst": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "q02",
+      "text": "Если в расчётах не сходится копейка, мне важно найти ошибку.",
+      "professionGroupId": "accountant",
+      "options": [
+        { "id": "q02-1", "label": "Не важно", "scores": { "procurement_specialist": 1 } },
+        { "id": "q02-2", "label": "Отчасти важно", "scores": { "budgeting_specialist": 1, "economist": 1 } },
+        { "id": "q02-3", "label": "Очень важно", "scores": { "accountant": 3, "economic_security": 2 } }
+      ]
+    },
+    {
+      "id": "q03",
+      "text": "Мне комфортно работать по чётким правилам и инструкциям.",
+      "professionGroupId": "tax_consultant",
+      "options": [
+        { "id": "q03-1", "label": "Неуютно", "scores": { "business_analyst": 2, "insurance_agent": 1 } },
+        { "id": "q03-2", "label": "Терпимо", "scores": { "accountant": 1, "credit_specialist": 1 } },
+        { "id": "q03-3", "label": "Комфортно", "scores": { "tax_consultant": 3, "credit_specialist": 2 } }
+      ]
+    },
+    {
+      "id": "q04",
+      "text": "Мне интересно разбираться в законах и официальных документах.",
+      "professionGroupId": "tax_consultant",
+      "options": [
+        { "id": "q04-1", "label": "Совсем нет", "scores": { "insurance_agent": 1, "procurement_specialist": 1 } },
+        { "id": "q04-2", "label": "Отчасти", "scores": { "economist": 1 } },
+        { "id": "q04-3", "label": "Да, интересно", "scores": { "tax_consultant": 3, "economic_security": 2, "accountant": 1 } }
+      ]
+    },
+    {
+      "id": "q05",
+      "text": "Мне нравится узнавать, почему возникла проблема, а не только исправлять её последствия.",
+      "professionGroupId": "business_analyst",
+      "options": [
+        { "id": "q05-1", "label": "Неинтересно", "scores": { "accountant": 1 } },
+        { "id": "q05-2", "label": "Иногда интересно", "scores": { "economist": 1, "economic_security": 1 } },
+        { "id": "q05-3", "label": "Очень интересно", "scores": { "business_analyst": 3, "financial_analyst": 2 } }
+      ]
+    },
+    {
+      "id": "q06",
+      "text": "Я умею объяснять сложные вещи простыми словами.",
+      "professionGroupId": "insurance_agent",
+      "options": [
+        { "id": "q06-1", "label": "Не получается", "scores": { "accountant": 1, "economist": 1 } },
+        { "id": "q06-2", "label": "Иногда получается", "scores": { "business_analyst": 1, "credit_specialist": 1 } },
+        { "id": "q06-3", "label": "Получается легко", "scores": { "insurance_agent": 3, "credit_specialist": 2, "business_analyst": 1 } }
+      ]
+    },
+    {
+      "id": "q07",
+      "text": "Мне интересно общаться с новыми людьми и узнавать их ситуации.",
+      "professionGroupId": "insurance_agent",
+      "options": [
+        { "id": "q07-1", "label": "Неинтересно", "scores": { "accountant": 2, "economic_security": 1 } },
+        { "id": "q07-2", "label": "Отчасти интересно", "scores": { "procurement_specialist": 1, "credit_specialist": 1 } },
+        { "id": "q07-3", "label": "Очень интересно", "scores": { "insurance_agent": 3, "credit_specialist": 2 } }
+      ]
+    },
+    {
+      "id": "q08",
+      "text": "Я спокоен, когда собеседник расстроен или раздражён.",
+      "professionGroupId": "credit_specialist",
+      "options": [
+        { "id": "q08-1", "label": "Теряюсь", "scores": { "economist": 1, "financial_analyst": 1 } },
+        { "id": "q08-2", "label": "По-разному", "scores": { "procurement_specialist": 1 } },
+        { "id": "q08-3", "label": "Сохраняю спокойствие", "scores": { "credit_specialist": 3, "insurance_agent": 2 } }
+      ]
+    },
+    {
+      "id": "q09",
+      "text": "Мне нравится замечать закономерности в данных и делать выводы.",
+      "professionGroupId": "financial_analyst",
+      "options": [
+        { "id": "q09-1", "label": "Не замечаю", "scores": { "insurance_agent": 1 } },
+        { "id": "q09-2", "label": "Иногда", "scores": { "business_analyst": 1, "economist": 1 } },
+        { "id": "q09-3", "label": "Часто", "scores": { "financial_analyst": 3, "economist": 2, "business_analyst": 1 } }
+      ]
+    },
+    {
+      "id": "q10",
+      "text": "Мне интересно планировать бюджет: распределять деньги и следить за расходами.",
+      "professionGroupId": "budgeting_specialist",
+      "options": [
+        { "id": "q10-1", "label": "Неинтересно", "scores": { "insurance_agent": 1 } },
+        { "id": "q10-2", "label": "Отчасти", "scores": { "economist": 1 } },
+        { "id": "q10-3", "label": "Интересно", "scores": { "budgeting_specialist": 3, "financial_analyst": 2, "accountant": 1 } }
+      ]
+    },
+    {
+      "id": "q11",
+      "text": "Мне нравится искать поставщиков, сравнивать условия и договариваться.",
+      "professionGroupId": "procurement_specialist",
+      "options": [
+        { "id": "q11-1", "label": "Неинтересно", "scores": { "accountant": 1, "tax_consultant": 1 } },
+        { "id": "q11-2", "label": "Отчасти", "scores": { "business_analyst": 1 } },
+        { "id": "q11-3", "label": "Интересно", "scores": { "procurement_specialist": 3, "credit_specialist": 1, "insurance_agent": 1 } }
+      ]
+    },
+    {
+      "id": "q12",
+      "text": "Я внимателен к деталям: датам, номерам, подписям, формулировкам.",
+      "professionGroupId": "economic_security",
+      "options": [
+        { "id": "q12-1", "label": "Скорее нет", "scores": { "insurance_agent": 1, "business_analyst": 1 } },
+        { "id": "q12-2", "label": "Отчасти", "scores": { "economist": 1, "procurement_specialist": 1 } },
+        { "id": "q12-3", "label": "Да", "scores": { "economic_security": 3, "accountant": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "q13",
+      "text": "Мне интересно выявлять риски и просчитывать ситуации заранее.",
+      "professionGroupId": "economic_security",
+      "options": [
+        { "id": "q13-1", "label": "Нет", "scores": { "insurance_agent": 1 } },
+        { "id": "q13-2", "label": "Отчасти", "scores": { "budgeting_specialist": 1, "procurement_specialist": 1 } },
+        { "id": "q13-3", "label": "Да", "scores": { "economic_security": 3, "financial_analyst": 2, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "q14",
+      "text": "Я могу долго концентрироваться на одной задаче без отвлечения.",
+      "professionGroupId": "accountant",
+      "options": [
+        { "id": "q14-1", "label": "Быстро устаю", "scores": { "insurance_agent": 2, "procurement_specialist": 1 } },
+        { "id": "q14-2", "label": "По-разному", "scores": { "business_analyst": 1 } },
+        { "id": "q14-3", "label": "Да, могу", "scores": { "accountant": 3, "financial_analyst": 1, "tax_consultant": 1 } }
+      ]
+    },
+    {
+      "id": "q15",
+      "text": "Мне нравится работать самостоятельно и отвечать за свой результат.",
+      "professionGroupId": "economist",
+      "options": [
+        { "id": "q15-1", "label": "Нет", "scores": { "insurance_agent": 1, "credit_specialist": 1 } },
+        { "id": "q15-2", "label": "Отчасти", "scores": { "accountant": 1 } },
+        { "id": "q15-3", "label": "Да", "scores": { "economist": 2, "financial_analyst": 2, "economic_security": 1 } }
+      ]
+    },
+    {
+      "id": "q16",
+      "text": "Мне интересно узнавать, как зарабатывают компании и от чего зависит прибыль.",
+      "professionGroupId": "economist",
+      "options": [
+        { "id": "q16-1", "label": "Неинтересно", "scores": { "accountant": 1 } },
+        { "id": "q16-2", "label": "Отчасти", "scores": { "budgeting_specialist": 1 } },
+        { "id": "q16-3", "label": "Интересно", "scores": { "economist": 3, "business_analyst": 2, "financial_analyst": 1 } }
+      ]
+    },
+    {
+      "id": "q17",
+      "text": "Я не боюсь отказов и умею делать выводы из неудач.",
+      "professionGroupId": "insurance_agent",
+      "options": [
+        { "id": "q17-1", "label": "Отказы выбивают", "scores": { "accountant": 2, "economist": 1 } },
+        { "id": "q17-2", "label": "По-разному", "scores": { "procurement_specialist": 1 } },
+        { "id": "q17-3", "label": "Не боюсь", "scores": { "insurance_agent": 3, "credit_specialist": 2, "procurement_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "q18",
+      "text": "Мне интересно помогать людям решать финансовые вопросы.",
+      "professionGroupId": "credit_specialist",
+      "options": [
+        { "id": "q18-1", "label": "Неинтересно", "scores": { "economist": 1, "tax_consultant": 1 } },
+        { "id": "q18-2", "label": "Отчасти", "scores": { "business_analyst": 1 } },
+        { "id": "q18-3", "label": "Интересно", "scores": { "credit_specialist": 3, "insurance_agent": 2 } }
+      ]
+    },
+    {
+      "id": "q19",
+      "text": "Мне нравится наводить порядок: раскладывать по категориям, систематизировать, вести списки.",
+      "professionGroupId": "budgeting_specialist",
+      "options": [
+        { "id": "q19-1", "label": "Нет", "scores": { "business_analyst": 1, "insurance_agent": 1 } },
+        { "id": "q19-2", "label": "Отчасти", "scores": { "tax_consultant": 1 } },
+        { "id": "q19-3", "label": "Да", "scores": { "budgeting_specialist": 2, "accountant": 2, "procurement_specialist": 1 } }
+      ]
+    },
+    {
+      "id": "q20",
+      "text": "Мне интересно разбираться в новых программах и автоматизировать рутину.",
+      "professionGroupId": "financial_analyst",
+      "options": [
+        { "id": "q20-1", "label": "Нет", "scores": { "insurance_agent": 1 } },
+        { "id": "q20-2", "label": "Отчасти", "scores": { "accountant": 1, "economist": 1 } },
+        { "id": "q20-3", "label": "Да", "scores": { "financial_analyst": 3, "business_analyst": 2, "accountant": 1 } }
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "econ-school",
+      "directionId": "economics",
+      "audience": "school",
+      "title": "Профориентационный тест: Экономика (для школьников 9–11 классов)",
+      "questionIds": [
+        "q01", "q02", "q03", "q04", "q05",
+        "q06", "q07", "q08", "q09", "q10",
+        "q11", "q12", "q13", "q14", "q15",
+        "q16", "q17", "q18", "q19", "q20"
+      ]
+    },
+    {
+      "id": "econ-college",
+      "directionId": "economics",
+      "audience": "college_or_bachelor",
+      "title": "Профориентационный тест: Экономика (для СПО, бакалавриата и магистратуры)",
+      "questionIds": [
+        "q20", "q19", "q18", "q17", "q16",
+        "q15", "q14", "q13", "q12", "q11",
+        "q10", "q09", "q08", "q07", "q06",
+        "q05", "q04", "q03", "q02", "q01"
+      ]
+    }
+  ]
+}

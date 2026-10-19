@@ -1,1 +1,272 @@
+/* Порядок слоёв: utilities (Tailwind) выше pixel (CSS pixel-retroui),
+   поэтому наши утилиты побеждают и preflight, и модули библиотеки.
+   Без этого чужой неслоёный preflight (`button {background:transparent}`,
+   `* {border-width:0}`) перебивал фон/рамки обычных кнопок —
+   из-за этого не подсвечивался выбранный вариант ответа. */
+@layer theme, base, components, pixel, utilities;
 @import "tailwindcss";
+@import "pixel-retroui/dist/index.css" layer(pixel);
+
+/* Пиксельный шрифт для заголовков и главных надписей.
+   Тело текста остаётся системным — читаемость длинных абзацев. */
+@font-face {
+  font-family: "Minecraft";
+  src: url("./assets/fonts/minecraft.ttf") format("truetype");
+  font-display: swap;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: "Minecraft", "Courier New", monospace;
+    letter-spacing: 0.02em;
+  }
+
+  /* Главные надписи шапки (GlitchText) — тоже фирменный шрифт */
+  .glitch {
+    font-family: "Minecraft", "Courier New", monospace;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* GlitchText — по образцу Kokonut UI glitch-text.
+   Два цветных слоя (оранжевый/янтарный) с анимированным clip-path
+   за основным текстом; отключаются при prefers-reduced-motion. */
+@keyframes glitch-anim-a {
+  0% {
+    clip-path: inset(28% 0 62% 0);
+    transform: translate(-2px, -1px);
+  }
+  10% {
+    clip-path: inset(82% 0 6% 0);
+    transform: translate(2px, 1px);
+  }
+  20% {
+    clip-path: inset(42% 0 40% 0);
+    transform: translate(-1px, 1px);
+  }
+  30% {
+    clip-path: inset(6% 0 84% 0);
+    transform: translate(2px, -1px);
+  }
+  40% {
+    clip-path: inset(60% 0 28% 0);
+    transform: translate(-2px, 0);
+  }
+  50% {
+    clip-path: inset(12% 0 76% 0);
+    transform: translate(1px, 1px);
+  }
+  60% {
+    clip-path: inset(48% 0 44% 0);
+    transform: translate(-1px, -1px);
+  }
+  70% {
+    clip-path: inset(90% 0 2% 0);
+    transform: translate(2px, 0);
+  }
+  80% {
+    clip-path: inset(22% 0 66% 0);
+    transform: translate(-2px, 1px);
+  }
+  90% {
+    clip-path: inset(54% 0 34% 0);
+    transform: translate(1px, -1px);
+  }
+  100% {
+    clip-path: inset(28% 0 62% 0);
+    transform: translate(-2px, -1px);
+  }
+}
+
+@keyframes glitch-anim-b {
+  0% {
+    clip-path: inset(64% 0 22% 0);
+    transform: translate(2px, 1px);
+  }
+  10% {
+    clip-path: inset(8% 0 78% 0);
+    transform: translate(-2px, -1px);
+  }
+  20% {
+    clip-path: inset(52% 0 30% 0);
+    transform: translate(1px, -1px);
+  }
+  30% {
+    clip-path: inset(88% 0 4% 0);
+    transform: translate(-1px, 1px);
+  }
+  40% {
+    clip-path: inset(18% 0 64% 0);
+    transform: translate(2px, 0);
+  }
+  50% {
+    clip-path: inset(74% 0 12% 0);
+    transform: translate(-2px, -1px);
+  }
+  60% {
+    clip-path: inset(34% 0 52% 0);
+    transform: translate(1px, 1px);
+  }
+  70% {
+    clip-path: inset(4% 0 86% 0);
+    transform: translate(0, 0);
+  }
+  80% {
+    clip-path: inset(58% 0 26% 0);
+    transform: translate(2px, -1px);
+  }
+  90% {
+    clip-path: inset(26% 0 60% 0);
+    transform: translate(0, 1px);
+  }
+  100% {
+    clip-path: inset(64% 0 22% 0);
+    transform: translate(2px, 1px);
+  }
+}
+
+.glitch {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch__layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.glitch__base {
+  position: relative;
+  z-index: 1;
+}
+
+.glitch--on .glitch__layer--a,
+.glitch--hover:hover .glitch__layer--a {
+  opacity: 0.85;
+  color: #fdba74;
+  animation: glitch-anim-a var(--glitch-speed, 2200ms) linear infinite;
+}
+
+.glitch--on .glitch__layer--b,
+.glitch--hover:hover .glitch__layer--b {
+  opacity: 0.85;
+  color: #fbbf24;
+  animation: glitch-anim-b calc(var(--glitch-speed, 2200ms) * 1.35) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glitch__layer {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* Карусель: скрыть полосу прокрутки, прокрутка остаётся доступной */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==== Пиксельная тема (неслойные правила — выше всего каскада) ==== */
+
+/* Рамка (border-image-outset: 2) и обе тени кнопок/карточек рисуются
+   ЗА пределами бокса: до 4px вправо-вниз (тень) и до 4px влево-вверх
+   (тень цветом фона — у цветных кнопок она заметно закрашивает соседний
+   текст, а без отступа перекрывает и левый-верхний сегмент рамки —
+   кнопка выглядит «кривой»). Поэтому компонентам нужен отступ ≥ 4px
+   со всех сторон — вместо штатных margin .5rem/.75rem берём 4px.
+   Сам outset не трогаем: это часть задуманного «пиксельного» вида. */
+.pixel-btn,
+.pixel-card {
+  margin: 4px;
+}
+
+/* 3D-эффект кнопки: «подсветка» при наведении, вдавливание при нажатии.
+   Активное состояние библиотеки (сдвиг вниз) сохраняется — мы его лишь
+   усиливаем сдвигом вправо-вниз, чтобы тень «уходила под палец». */
+.pixel-btn:not(:disabled) {
+  transition:
+    filter 120ms ease,
+    transform 60ms ease,
+    box-shadow 60ms ease;
+}
+
+.pixel-btn:not(:disabled):hover {
+  filter: brightness(1.07) saturate(1.05);
+}
+
+.pixel-btn:not(:disabled):active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.pixel-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Плавное появление пиксельных карточек-кнопок при наведении */
+.pixel-card {
+  transition: filter 120ms ease;
+}
+
+.pixel-card:hover {
+  filter: brightness(0.99);
+}
+
+/* ==== Фуллскрин-фон (AppShell, FULLSCREEN_BACKGROUND) ====
+   Контент лежит прямо на тёмном ASCII-фоне. Правила действуют только
+   внутри корня .bg-fs-root: текст вне карточек/кнопок/белых поверхностей
+   становится светлым, а на белом фоне и в карточках остаётся тёмным.
+   Откат: FULLSCREEN_BACKGROUND = false (правила становятся инертными). */
+
+.bg-fs-root {
+  color: #ffedd5;
+}
+
+/* На белых поверхностях — тёмный текст (по наследованию для безклассовых
+   элементов; явные утилиты ниже внутри .bg-white не перекрашиваются) */
+.bg-fs-root .bg-white {
+  color: #431407;
+}
+
+/* Смена цвета — только вне карточек, кнопок и белых поверхностей.
+   Специфичность выше утилит; правила неслойные — бьют и layer(utilitees). */
+.bg-fs-root
+  :is(.text-stone-900, .text-stone-800, .text-stone-700):not(
+    .pixel-card
+  ):not(.pixel-card *):not(.pixel-btn):not(.pixel-btn *):not(.bg-white):not(
+    .bg-white *
+  ) {
+  color: #fff7ed;
+}
+
+.bg-fs-root
+  :is(.text-stone-600, .text-stone-500):not(.pixel-card):not(
+    .pixel-card *
+  ):not(.pixel-btn):not(.pixel-btn *):not(.bg-white):not(.bg-white *) {
+  color: #fed7aa;
+}
+
+.bg-fs-root
+  .text-stone-400:not(.pixel-card):not(.pixel-card *):not(.pixel-btn):not(
+    .pixel-btn *
+  ):not(.bg-white):not(.bg-white *) {
+  color: #fdba74;
+}
+
+.bg-fs-root
+  .text-orange-700:not(.pixel-card):not(.pixel-card *):not(.pixel-btn):not(
+    .pixel-btn *
+  ):not(.bg-white):not(.bg-white *) {
+  color: #fb923c;
+}

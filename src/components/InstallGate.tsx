@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { isStandalone } from "../lib/pwa";
+import installHintGif from "../assets/install-hint.gif";
+import PixelButton from "./PixelButton";
+import PixelCard from "./PixelCard";
 
 const instructions: Record<string, string> = {
   Android:
@@ -18,32 +21,43 @@ export default function InstallGate({ children }: { children: React.ReactNode })
   return (
     <section aria-label="Установка приложения" className="flex flex-col gap-4">
       <h2 className="text-xl font-semibold">Установите приложение</h2>
-      <p className="text-sm text-slate-600">
-        «ПГУ: Экономика — твой выбор» работает как приложение: устанавливается
-        на устройство, открывается без браузерной панели и работает офлайн
-        после первой загрузки.
+      <p className="text-sm text-stone-600">
+        «Твой выбор» работает как приложение: устанавливается на устройство,
+        открывается без браузерной панели и работает офлайн после первой
+        загрузки.
       </p>
+
+      <img
+        src={installHintGif}
+        alt="Анимация: как установить приложение на устройство"
+        width={128}
+        height={128}
+        className="mx-auto rounded-lg"
+      />
 
       <div className="flex flex-col gap-3">
         {Object.entries(instructions).map(([platform, text]) => (
-          <div
-            key={platform}
-            className="rounded-xl border border-slate-200 bg-white p-3"
-          >
+          <PixelCard key={platform}>
             <p className="text-sm font-medium">{platform}</p>
-            <p className="mt-1 text-sm text-slate-600">{text}</p>
-          </div>
+            <p className="mt-1 text-sm text-stone-600">{text}</p>
+          </PixelCard>
         ))}
       </div>
 
-      <button
+      <PixelButton
         type="button"
+        variant="primary"
         data-testid="continue-in-browser"
-        onClick={() => setDismissed(true)}
-        className="min-h-11 rounded-lg border border-slate-300 bg-white px-6 font-medium text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+        onClick={() => {
+          setDismissed(true);
+          // после скрытия гейта контент смещается вверх — возвращаем
+          // прокрутку к началу страницы, иначе остаёмся «в глубине»
+          requestAnimationFrame(() => window.scrollTo(0, 0));
+        }}
+        className="min-h-11 px-6 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
       >
         Продолжить в браузере
-      </button>
+      </PixelButton>
     </section>
   );
 }

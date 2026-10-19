@@ -5,3 +5,6 @@ dist
 test-results
 playwright-report
 *.tsbuildinfo
+.playwright-mcp
+tmp-serve.mjs
+*.log

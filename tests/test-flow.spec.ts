@@ -26,7 +26,13 @@ test("full flow: 20 answers with progress bar and back navigation keeps answers"
 }) => {
   await page.goto("/");
   await page.getByTestId("continue-in-browser").click();
+
   await page.getByTestId("test-card").first().click();
+
+
+
+  // полнота ответов: без выбранного варианта переход запрещён
+  await expect(page.getByTestId("next-btn")).toBeDisabled();
 
   // ответ на 1-й вопрос, вперёд, назад — ответ должен сохраниться
   const firstOption = page.getByTestId("answer-option").first();
@@ -65,7 +71,7 @@ test("progress survives page reload mid-test", async ({ page }) => {
   await expect(page.getByTestId("progress-bar")).toContainText("11 / 20");
 });
 
-test("result screen shows best profession and explanation", async ({
+test("result screen shows best profession and links to gallery", async ({
   page,
 }) => {
   await passTest(page);
@@ -75,6 +81,21 @@ test("result screen shows best profession and explanation", async ({
   await expect(page.getByTestId("result-screen")).toContainText(
     "соответствие",
   );
+
+  // переход из результата в карточку профессии галереи
+  await page.getByTestId("best-profession-link").click();
+  await expect(
+    page.getByRole("button", { name: "← В галерею профессий" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Задачи и навыки", { exact: true }),
+  ).toBeVisible();
+
+  // возврат в галерею работает
+  await page
+    .getByRole("button", { name: "← В галерею профессий" })
+    .click();
+  await expect(page.getByTestId("profession-card").first()).toBeVisible();
 });
 
 test("manifest is served", async ({ request }) => {

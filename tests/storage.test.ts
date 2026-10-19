@@ -9,7 +9,7 @@ import {
 
 const progress: TestProgress = {
   testId: "t1",
-  answers: { q1: "q1-a", q2: null },
+  answers: { q1: 4, q2: null },
   currentIndex: 1,
   updatedAt: "2026-10-15T12:00:00.000Z",
 };
@@ -30,6 +30,19 @@ describe("saveProgress/loadProgress", () => {
 
   it("returns null for corrupted JSON without throwing", () => {
     localStorage.setItem(STORAGE_KEY, "{not valid json");
+    expect(loadProgress("t1")).toBeNull();
+  });
+
+  it("returns null when answers contain out-of-scale values", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        testId: "t1",
+        answers: { q1: 8 },
+        currentIndex: 0,
+        updatedAt: "2026-10-15T12:00:00.000Z",
+      }),
+    );
     expect(loadProgress("t1")).toBeNull();
   });
 

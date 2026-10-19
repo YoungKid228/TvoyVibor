@@ -1,21 +1,22 @@
-import type { Question } from "../types/test";
+import { SCALE_LABELS, SCALE_VALUES } from "../types/test";
+import PixelButton from "./PixelButton";
 
 type Props = {
-  question: Question;
+  questionText: string;
   index: number;
   total: number;
-  selected: string | null;
-  onAnswer: (optionId: string) => void;
+  selected: number | null;
+  onAnswer: (value: number) => void;
   onNext: () => void;
   onBack: () => void;
   canGoBack: boolean;
 };
 
 const optionStyles =
-  "flex min-h-11 w-full items-center rounded-xl border p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-safe:transition-colors";
+  "flex min-h-11 w-full items-center rounded-xl border-2 p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 motion-safe:transition-colors";
 
 export default function QuestionScreen({
-  question,
+  questionText,
   index,
   total,
   selected,
@@ -26,52 +27,66 @@ export default function QuestionScreen({
 }: Props) {
   return (
     <section aria-label={`Вопрос ${index + 1} из ${total}`}>
-      <p className="mb-2 text-sm text-slate-500">
+      <p className="mb-2 text-sm text-stone-500">
         Вопрос {index + 1} из {total}
       </p>
-      <h2 className="mb-4 text-lg font-medium leading-snug">{question.text}</h2>
+      <h2 className="mb-4 text-lg font-medium leading-snug">{questionText}</h2>
 
+      <p className="mb-2 text-xs text-stone-500">
+        Оцени по шкале от 1 («совсем не моё») до 5 («абсолютно моё»)
+      </p>
       <div className="flex flex-col gap-2">
-        {question.options.map((option) => {
-          const isSelected = selected === option.id;
+        {SCALE_VALUES.map((value) => {
+          const isSelected = selected === value;
           return (
             <button
-              key={option.id}
+              key={value}
               type="button"
               data-testid="answer-option"
               aria-pressed={isSelected}
-              onClick={() => onAnswer(option.id)}
+              onClick={() => onAnswer(value)}
               className={`${optionStyles} ${
                 isSelected
-                  ? "border-sky-600 bg-sky-50 font-medium"
-                  : "border-slate-200 bg-white hover:border-sky-400"
+                  ? "border-orange-600 bg-orange-100 font-medium shadow-[2px_2px_0_0_#9a3412]"
+                  : "border-stone-300 bg-white hover:border-orange-400 hover:bg-orange-50"
               }`}
             >
-              {option.label}
+              <span
+                aria-hidden="true"
+                className={`mr-3 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-medium tabular-nums ${
+                  isSelected
+                    ? "border-orange-600 bg-orange-600 text-white"
+                    : "border-stone-400 text-stone-600"
+                }`}
+              >
+                {value}
+              </span>
+              {SCALE_LABELS[value]}
             </button>
           );
         })}
       </div>
 
       <div className="mt-6 flex items-center justify-between">
-        <button
+        <PixelButton
           type="button"
           data-testid="back-btn"
           onClick={onBack}
           disabled={!canGoBack}
-          className="min-h-11 rounded-lg px-4 text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-40"
+          className="min-h-11 px-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Назад
-        </button>
-        <button
+        </PixelButton>
+        <PixelButton
           type="button"
+          variant="primary"
           data-testid="next-btn"
           onClick={onNext}
           disabled={selected == null}
-          className="min-h-11 rounded-lg bg-sky-600 px-6 font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:opacity-40"
+          className="min-h-11 px-6 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {index + 1 === total ? "Завершить" : "Далее"}
-        </button>
+        </PixelButton>
       </div>
     </section>
   );

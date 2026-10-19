@@ -9,13 +9,14 @@ import {
   saveProgress,
   type TestProgress,
 } from "../lib/storage";
-import type { CareerTest, Question } from "../types/test";
+import type { CareerTest, Profession, Question } from "../types/test";
 
 type Props = {
   test: CareerTest;
   questions: Question[];
-  professions: import("../types/test").Profession[];
+  professions: Profession[];
   onExit: () => void;
+  onOpenProfession: (professionId: string) => void;
 };
 
 export default function TestPage({
@@ -23,6 +24,7 @@ export default function TestPage({
   questions,
   professions,
   onExit,
+  onOpenProfession,
 }: Props) {
   const orderedQuestions = useMemo(() => {
     const byId = new Map(questions.map((q) => [q.id, q]));
@@ -55,9 +57,13 @@ export default function TestPage({
   const currentQuestion = orderedQuestions[progress.currentIndex];
 
   if (finished) {
+    const scored = scoreTest(orderedQuestions, progress.answers, professions);
+    const scoredIds = new Set(scored.map((s) => s.profession.id));
+    const pending = professions.filter((p) => !scoredIds.has(p.id));
     return (
       <ResultScreen
-        scored={scoreTest(orderedQuestions, progress.answers, professions)}
+        scored={scored}
+        pendingCount={pending.length}
         onRestart={() => {
           clearProgress(test.id);
           setProgress({
@@ -68,18 +74,19 @@ export default function TestPage({
           });
           setFinished(false);
         }}
+        onOpenProfession={onOpenProfession}
       />
     );
   }
 
   if (!currentQuestion) {
     return (
-      <p className="text-slate-600">
+      <p className="text-stone-600">
         Вопросы теста не найдены.{" "}
         <button
           type="button"
           onClick={onExit}
-          className="text-sky-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+          className="text-orange-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
         >
           На главную
         </button>
@@ -87,8 +94,8 @@ export default function TestPage({
     );
   }
 
-  const handleAnswer = (optionId: string) => {
-    update({ answers: { ...progress.answers, [currentQuestion.id]: optionId } });
+  const handleAnswer = (value: number) => {
+    update({ answers: { ...progress.answers, [currentQuestion.id]: value } });
   };
 
   const handleNext = () => {
@@ -115,7 +122,7 @@ export default function TestPage({
         />
       </div>
       <QuestionScreen
-        question={currentQuestion}
+        questionText={currentQuestion.text}
         index={progress.currentIndex}
         total={orderedQuestions.length}
         selected={progress.answers[currentQuestion.id] ?? null}
