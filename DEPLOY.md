@@ -1,68 +1,91 @@
-# Деплой на Vercel
+# Деплой на GitHub Pages
 
-Приложение — чистая статика (Vite + PWA), бэкенда нет. Vercel подходит полностью, бесплатного тарифа (Hobby) достаточно.
+Приложение — чистая статика (Vite + PWA), бэкенда нет. GitHub Pages бесплатен
+и пересобирает проект автоматически при каждом пуше в `main`.
 
-## Вариант 1 — через Git (рекомендуется: авто-деплой при каждом пуше)
+## Как устроен деплой
 
-1. **Залей проект в GitHub**
+Workflow `.github/workflows/deploy.yml` состоит из двух job'ов:
 
-   ```bash
-   git add -A
-   git commit -m "Prepare for release"
-   git remote add origin https://github.com/<твой-логин>/tvoj-vybor.git
-   git push -u origin main
-   ```
+1. **build** — `npm ci` → сборка с `BASE_PATH=/<имя-репозитория>/` → загрузка
+   папки `dist` как артефакта Pages.
+2. **deploy** — публикация артефакта через `actions/deploy-pages@v4`.
 
-   Имя репозитория любое (например `tvoj-vybor`), репозиторий можно private.
+`BASE_PATH` подставляется в `vite.config.ts` и используется как `base` для Vite
+и `vite-plugin-pwa`, а также как `start_url`/`scope` манифеста и в путях иконок.
+Поэтому приложение корректно работает из подпапки `/<имя-репозитория>/`.
 
-2. **Импортируй проект в Vercel**
-   - Зайди на [vercel.com](https://vercel.com) под аккаунтом GitHub.
-   - **Add New → Project → Import** — выбери репозиторий.
-   - Vercel сам определит Vite. Проверь настройки (должны подставиться сами):
-     - Framework Preset: **Vite**
-     - Build Command: `npm run build`
-     - Output Directory: `dist`
-     - Install Command: `npm install`
-   - Нажми **Deploy**.
+## Шаг 1. Реквизиты репозитория
 
-3. Готово — через ~минуту приложение будет на адресе вида
-   `https://tvoj-vybor-<хеш>.vercel.app`. Домен можно поменять в
-   **Settings → Domains** (можно подключить и свой домен).
+- Ветка `main` должна содержать актуальный код приложения.
+- Репозиторий должен быть **публичным**: GitHub Pages на бесплатном плане
+  недоступен для приватных репозиториев (нужен Pro/Team).
+  Сделать публичным: **Settings → General → Danger Zone → Change visibility →
+  Change repository visibility → Change to public**.
 
-4. **Обновления**: правки кода → `git push` → Vercel пересобирает и выкладывает
-   автоматически. Каждый pull request получает отдельный preview-адрес.
+## Шаг 2. Включить Pages
 
-## Вариант 2 — через Vercel CLI (без Git)
+1. **Settings → Pages**.
+2. **Source**: *Deploy from a branch*.
+3. Ветка: `main`, папка: `/ (root)`.
+4. **Save**.
+
+Первый деплой запустится автоматически (или вручную: **Actions → Deploy to
+GitHub Pages → Run workflow**).
+
+## Шаг 3. Публиковать изменения
 
 ```bash
-npm i -g vercel
-vercel login
-vercel --prod
+git add -A
+git commit -m "Описание изменений"
+git push origin main
 ```
 
-При первом запуске CLI задаст пару вопросов (framework — Vite, остальное по
-умолчанию) и задеплоит.
+Workflow соберёт и опубликует сайт. Адрес: `https://<логин>.github.io/<имя-репозитория>/`.
+
+## Шаг 4. Проверить результат
+
+- Сайт открывается по HTTPS (при необходимости редирект с `http://`).
+- Service worker зарегистрирован в scope `/<имя-репозитория>/`.
+- Фото клуба и галереи ПГУ загружаются (кэшируются отдельно от precache).
+- Манифест отдаётся с MIME `application/manifest+json`.
+- Приложение открывается в standalone-режиме и работает без сети.
+
+## Локальная проверка сборки с тем же base-path
+
+```bash
+MSYS_NO_PATHCONV=1 BASE_PATH=/<имя-репозитория>/ npm run build
+MSYS_NO_PATHCONV=1 BASE_PATH=/<имя-репозитория>/ npm run preview
+# http://127.0.0.1:4173/<имя-репозитория>/
+```
+
+`MSYS_NO_PATHCONV=1` нужен только в Git Bash на Windows — без него путь
+`/<имя-репозитория>/` превратится в `C:/Program Files/Git/...`. В CI (Linux)
+такой проблемы нет.
 
 ## Важно для PWA
 
-- Сервис-воркер и манифест работают только по **HTTPS** — на Vercel это из
-  коробки.
-- После первого деплоя открой сайт на телефоне, меню браузера → «Установить
-  приложение» (iOS: Поделиться → На экран «Домой»).
-- При обновлении версии кэш сбрасывается сам: `registerType: "autoUpdate"`,
-  новый `build` меняет precache-манифест.
-- Если менялись иконки (`public/icons/`) или имя в `vite.config.ts`
-  (секция `manifest`) — после деплоя **переустанови** PWA на телефоне:
-  уже установленные приложения не всегда подхватывают новые иконки сразу.
+- Service worker работает только по **HTTPS** — на GitHub Pages это из коробки.
+- После первого деплоя откройте сайт на телефоне и установите приложение:
+  Android — кнопка «Установить приложение» в приложении (нативный промпт),
+  iOS — «Поделиться → На экран “Домой”».
+- Версия обновляется автоматически: `registerType: "autoUpdate"`, новый `build`
+  меняет precache-манифест.
+- Если менялись иконки (`public/icons/`) или манифест — **переустановите** PWA
+  на телефоне: уже установленные приложения не всегда подхватывают изменения
+  иконок сразу.
 
-## Локальная проверка сборки перед деплоем
+## Другие статические хостинги
 
-```bash
-npm run build
-npm run preview   # http://localhost:4173 — именно собранная версия
-```
+Подойдёт любой хостинг статических файлов по HTTPS:
 
-## Структура для деплоя
+- **Netlify** — Build Command `npm run build`, Publish Directory `dist`.
+- **Cloudflare Pages** — Build Command `npm run build`, Output Directory `dist`.
+- **Свой сервер** — отдать содержимое `dist/` как статику.
 
-В репозиторий не должны попадать: `node_modules/`, `dist/` (собирается на
-Vercel), временные файлы — всё перечислено в `.gitignore`.
+Для них `BASE_PATH` не задаётся: сборка идёт в корень (`base: "/"`).
+
+## Что не должно попадать в репозиторий
+
+`node_modules/`, `dist/` (собирается в CI), временные файлы и локальные скрипты —
+всё перечислено в `.gitignore`.
