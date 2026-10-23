@@ -14,7 +14,7 @@
 - [Возможности](#возможности)
 - [Как запустить локально](#как-запустить-локально)
 - [Команды](#команды)
-- [Деплой на GitHub Pages](#деплой-на-github-pages)
+- [Деплой на Cloudflare Pages](#деплой-на-cloudflare-pages)
 - [Стек](#стек)
 - [Архитектура приложения](#архитектура-приложения)
 - [Структура проекта](#структура-проекта)
@@ -67,61 +67,69 @@ npm run preview    # локальный просмотр сборки (http://12
 npm run test:e2e   # сквозные тесты (Playwright, использует npm run preview)
 ```
 
-## Деплой на GitHub Pages
+## Деплой на Cloudflare Pages
 
-Приложение — чистая статика (Vite + PWA), бэкенда нет, поэтому достаточно любого
-статического хостинга. Основной вариант — **GitHub Pages**, он бесплатный и
-автоматически пересобирает проект при каждом пуше в `main`.
+Приложение — чистая статика (Vite + PWA), бэкенда нет. Основной вариант хостинга —
+**Cloudflare Pages** (бесплатный тариф): сайт отдаётся по HTTPS, репозиторий может
+оставаться приватным.
 
-### Как это работает
-
-В `.github/workflows/deploy.yml` описан workflow из двух job'ов:
-
-1. `build` — `npm ci` → сборка с `BASE_PATH=/<имя-репозитория>/` → загрузка `dist`
-   как артефакта Pages.
-2. `deploy` — публикация артефакта через `actions/deploy-pages@v4`.
-
-`BASE_PATH` попадает в `vite.config.ts` и используется как `base` для Vite и
-`vite-plugin-pwa`, а также как `start_url`/`scope` манифеста и в путях иконок.
-Поэтому приложение корректно работает из подпапки `/<имя-репозитория>/`.
-
-### Включение Pages в репозитории
-
-1. Откройте репозиторий → **Settings → Pages**.
-2. **Source**: *Deploy from a branch*, ветка `main`, папка `/ (root)`.
-3. Сохраните.
-
-> GitHub Pages на бесплатном плане доступен только для **публичных** репозиториев.
-> Если репозиторий приватный — либо сделайте его публичным
-> (`Settings → General → Danger Zone → Change visibility`), либо используйте другой
-> статический хостинг.
-
-### Публикация изменений
+### Подготовка сборки
 
 ```bash
-git add -A
-git commit -m "Описание изменений"
-git push origin main
+npm run build      # собирает dist/
 ```
 
-После пуша workflow соберёт и опубликует сайт. Адрес будет вида
-`https://<логин>.github.io/<имя-репозитория>/`. Сборку можно также запустить
-вручную: **Actions → Deploy to GitHub Pages → Run workflow**.
+Собранная папка `dist/` — это и есть содержимое сайта: `index.html`, ассеты,
+`manifest.webmanifest`, `sw.js`, иконки и фото.
 
-### Проверка после деплоя
+### Вариант 1 — загрузка папки вручную (самый быстрый)
 
-- Сайт открывается по HTTPS и редиректит на `https://`.
-- Service worker зарегистрирован в scope `/<имя-репозитория>/`.
-- Фото клуба и галереи ПГУ грузятся (они кэшируются отдельно от precache).
-- Манифест отдаётся с корректным MIME `application/manifest+json`.
-- Приложение открывается в standalone-режиме и работает без сети.
+1. Откройте [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages →
+   Create application → Pages → Upload assets**.
+2. Имя проекта: `tvoi-vybor` (или `tvoy-vibor`).
+3. Перетащите папку `dist` в окно загрузки (или нажмите **Deploy**).
+4. Через минуту сайт доступен на адресе `https://tvoi-vybor.pages.dev`.
+
+Обновление: пересоберите (`npm run build`) и загрузите новую папку `dist` заново.
+
+### Вариант 2 — деплой из командной строки (wrangler)
+
+```bash
+npx wrangler login                                  # вход в аккаунт Cloudflare
+npx wrangler pages project create tvoi-vybor       # создать проект (один раз)
+npm run build
+npx wrangler pages deploy dist --project-name tvoi-vybor
+```
+
+CLI сам найдёт свежайший деплой и напечатает URL вида
+`https://<deployment-url>.tvoi-vybor.pages.dev`, постоянный адрес проекта —
+`https://tvoi-vybor.pages.dev`.
+
+### Вариант 3 — автодеплой из GitHub
+
+Cloudflare умеет подключить репозиторий (в том числе приватный) через GitHub App:
+
+1. **Create application → Pages → Connect to Git**.
+2. Выбрать репозиторий и ветку `main`.
+3. Build command: `npm run build`. Output directory: `dist`.
+4. Environment variable `BASE_PATH` — **не задавать** (для Pages сайт лежит в корне,
+   `base: "/"`).
+
+Теперь каждый `git push` в `main` пересобирает и публикует сайт автоматически.
+
+### Требования к хостингу
+
+- **HTTPS** — обязателен для service worker (на Cloudflare Pages включён по умолчанию).
+- Корректный MIME-тип `.webmanifest` (`application/manifest+json`) — обеспечивается
+  автоматически.
+- Обновления подхватываются сами: `registerType: "autoUpdate"`.
 
 ### Другие статические хостинги
 
 Подойдёт любой хостинг статических файлов по HTTPS:
 
 - **Netlify** — Build Command `npm run build`, Publish Directory `dist`.
-- **Cloudflare Pages** — Build Command `npm run build`, Output Directory `dist`.
+- **Cloudflare Pages** — см. раздел выше.
 - **Свой сервер** — отдать содержимое `dist/` как статику.
 
 Для этих хостингов `BASE_PATH` не задаётся, сборка идёт в корень (`base: "/"`).
@@ -262,7 +270,7 @@ service worker, манифест, офлайн-работа, экран уста
   исходные вопросы с 3 вариантами ответа (для аудита преобразования весов).
 - [`docs/superpowers/plans/2026-10-15-pgu-economics-pwa-mvp.md`](docs/superpowers/plans/2026-10-15-pgu-economics-pwa-mvp.md) —
   план MVP.
-- [`DEPLOY.md`](DEPLOY.md) — пошаговая инструкция по деплою на GitHub Pages.
+- [`DEPLOY.md`](DEPLOY.md) — пошаговая инструкция по деплою на Cloudflare Pages.
 
 ---
 
