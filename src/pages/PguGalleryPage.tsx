@@ -5,12 +5,15 @@ import StickyCardStack, {
 } from "../components/StickyCardStack";
 
 /* Фото галереи ПГУ лежат в public/pgu-gallery и кэшируются service worker'ом
-   при первом просмотре (runtimeCaching в vite.config.ts) */
+   при первом просмотре (runtimeCaching в vite.config.ts).
+   BASE_URL нужен для публикации в подпапке (GitHub Pages → /<repo>/). */
+const BASE = import.meta.env.BASE_URL;
+
 const photos: StickyCardItem[] = Array.from({ length: 30 }, (_, i) => {
   const n = String(i + 1).padStart(2, "0");
   return {
     title: `Кадр ${n}`,
-    image: `/pgu-gallery/pgu-${n}.jpg`,
+    image: `${BASE}pgu-gallery/pgu-${n}.jpg`,
   };
 });
 

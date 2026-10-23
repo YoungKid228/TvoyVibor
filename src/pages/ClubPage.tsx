@@ -5,19 +5,22 @@ import ImageStackCarousel, {
   type StackPhoto,
 } from "../components/ImageStackCarousel";
 
+/** Базовый путь приложения (для GitHub Pages — подпапка /<repo>/) */
+const BASE = import.meta.env.BASE_URL;
+
 const clubPhotos: StackPhoto[] = [
-  { src: "/club/club-01.jpg", alt: "Встреча клуба молодого предпринимателя" },
-  { src: "/club/club-02.jpg", alt: "Выступление спикера перед студентами" },
-  { src: "/club/club-03.jpg", alt: "Работа в командах на воркшопе" },
-  { src: "/club/club-04.jpg", alt: "Обсуждение бизнес-идей" },
-  { src: "/club/club-05.jpg", alt: "Мастер-класс клуба" },
-  { src: "/club/club-06.jpg", alt: "Участники клуба на мероприятии" },
-  { src: "/club/club-07.jpg", alt: "Питч студенческого проекта" },
-  { src: "/club/club-08.jpg", alt: "Гостевая встреча с предпринимателем" },
-  { src: "/club/club-09.jpg", alt: "Командная работа над проектом" },
-  { src: "/club/club-10.jpg", alt: "Хакатон бизнес-идей" },
-  { src: "/club/club-11.jpg", alt: "Награждение участников" },
-  { src: "/club/club-12.jpg", alt: "Участники клуба вместе" },
+  { src: `${BASE}club/club-01.jpg`, alt: "Встреча клуба молодого предпринимателя" },
+  { src: `${BASE}club/club-02.jpg`, alt: "Выступление спикера перед студентами" },
+  { src: `${BASE}club/club-03.jpg`, alt: "Работа в командах на воркшопе" },
+  { src: `${BASE}club/club-04.jpg`, alt: "Обсуждение бизнес-идей" },
+  { src: `${BASE}club/club-05.jpg`, alt: "Мастер-класс клуба" },
+  { src: `${BASE}club/club-06.jpg`, alt: "Участники клуба на мероприятии" },
+  { src: `${BASE}club/club-07.jpg`, alt: "Питч студенческого проекта" },
+  { src: `${BASE}club/club-08.jpg`, alt: "Гостевая встреча с предпринимателем" },
+  { src: `${BASE}club/club-09.jpg`, alt: "Командная работа над проектом" },
+  { src: `${BASE}club/club-10.jpg`, alt: "Хакатон бизнес-идей" },
+  { src: `${BASE}club/club-11.jpg`, alt: "Награждение участников" },
+  { src: `${BASE}club/club-12.jpg`, alt: "Участники клуба вместе" },
 ];
 
 const goals: string[] = [
@@ -96,7 +99,7 @@ export default function ClubPage() {
       </p>
 
       <ClubPhoto
-        src="/club/club-01.jpg"
+        src={`${BASE}club/club-01.jpg`}
         alt="Встреча клуба молодого предпринимателя"
         tilt={-1}
       />
@@ -162,7 +165,7 @@ export default function ClubPage() {
       </PixelCard>
 
       <ClubPhoto
-        src="/club/club-08.jpg"
+        src={`${BASE}club/club-08.jpg`}
         alt="Гостевая встреча с предпринимателем"
         tilt={1}
       />
@@ -195,7 +198,7 @@ export default function ClubPage() {
       </PixelCard>
 
       <ClubPhoto
-        src="/club/club-11.jpg"
+        src={`${BASE}club/club-11.jpg`}
         alt="Награждение участников клуба"
         tilt={-1}
       />
