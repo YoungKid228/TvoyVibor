@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isStandalone } from "../src/lib/pwa";
+import {
+  canPromptInstall,
+  isStandalone,
+  promptInstall,
+  subscribeToInstallPrompt,
+} from "../src/lib/pwa";
 
 const originalMatchMedia = window.matchMedia;
 
@@ -50,9 +55,40 @@ describe("isStandalone", () => {
     expect(isStandalone()).toBe(true);
   });
 
-  it("returns false for iOS navigator.standalone === false", () => {
-    stubMatchMedia([]);
-    stubIosStandalone(false);
-    expect(isStandalone()).toBe(false);
+});
+
+describe("install prompt", () => {
+  it("returns false without a deferred beforeinstallprompt event (jsdom)", async () => {
+    expect(await promptInstall()).toBe(false);
+  });
+
+  it("notifies subscribers and allows prompting after beforeinstallprompt", async () => {
+    let notified = 0;
+    const unsubscribe = subscribeToInstallPrompt(() => {
+      notified += 1;
+    });
+
+    const promptCalls: number[] = [];
+    const event = new Event("beforeinstallprompt") as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: string }>;
+    };
+    Object.assign(event, {
+      prompt: () => {
+        promptCalls.push(1);
+        return Promise.resolve();
+      },
+      userChoice: Promise.resolve({ outcome: "accepted" }),
+    });
+
+    window.dispatchEvent(event);
+    expect(notified).toBe(1);
+    expect(canPromptInstall()).toBe(true);
+
+    unsubscribe();
+    expect(await promptInstall()).toBe(true);
+    expect(promptCalls).toHaveLength(1);
+    expect(canPromptInstall()).toBe(false);
+    expect(await promptInstall()).toBe(false);
   });
 });

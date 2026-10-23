@@ -96,6 +96,27 @@ export type ProgramProfile = {
   generalCompetencies: string[] | null;
 };
 
+/**
+ * Вариант поступления на программу: форма обучения + база поступления,
+ * срок, количество мест и стоимость (данные приёмной кампании).
+ * Нужен там, где срок и места зависят от формы И базы (СПО: на базе
+ * 9 или 11 классов; бакалавриат/магистратура: очная и заочная).
+ */
+export type ProgramOption = {
+  /** Форма обучения: «Очная» / «Заочная» */
+  form: string;
+  /** База поступления, например «На базе 11 классов» */
+  base: string | null;
+  /** Срок обучения по этому варианту */
+  duration: string | null;
+  budgetPlaces: number | null;
+  paidPlaces: number | null;
+  /** Стоимость обучения в год, если указана */
+  costPerYear: string | null;
+  /** Профили, на которые принимают по этому варианту (магистратура) */
+  profiles: string[] | null;
+};
+
 export type Program = {
   id: string;
   code: string;
@@ -120,6 +141,8 @@ export type Program = {
   qualificationDetails: string[] | null;
   /** Группы вступительных испытаний по базам поступления */
   admission: ProgramGroup[] | null;
+  /** Варианты поступления: форма, база, срок, места и стоимость */
+  admissionOptions: ProgramOption[] | null;
   description: string[] | null;
   outcomes: string | null;
   howItWorks: string[] | null;

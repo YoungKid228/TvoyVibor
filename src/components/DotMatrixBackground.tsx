@@ -13,6 +13,21 @@ import {
 const DEFAULT_GLYPH_PADDING_PX = 2;
 const DEFAULT_CHARACTERS = "●○•·";
 
+/** Бюджет площади канваса (в пикселях) — два полноэкранных прохода шейдера. */
+const MAX_CANVAS_PIXELS = 2_400_000;
+
+/**
+ * Подбираем devicePixelRatio так, чтобы канвас не превышал бюджет пикселей.
+ * На телефоне остаётся 1.5 (мягкий фон это не показывает), на большом
+ * мониторе — 1 или меньше, иначе кадр не влезает в 16 мс.
+ */
+function computeDpr(width: number, height: number): number {
+    const base = Math.min(window.devicePixelRatio || 1, 1.5);
+    const area = Math.max(1, width) * Math.max(1, height);
+    if (area * base * base <= MAX_CANVAS_PIXELS) return base;
+    return Math.max(0.75, Math.sqrt(MAX_CANVAS_PIXELS / area));
+}
+
 const perlinVertexShader = `#version 300 es
 in vec2 uv;
 in vec2 position;
@@ -434,7 +449,10 @@ function OriginkitDottedBackground({
         let renderer: any;
         try {
             renderer = new Renderer({
-                dpr: Math.min(window.devicePixelRatio || 1, 2),
+                dpr: computeDpr(
+                    container.clientWidth || window.innerWidth,
+                    container.clientHeight || window.innerHeight
+                ),
                 alpha: true,
                 premultipliedAlpha: false,
             });
@@ -454,12 +472,18 @@ function OriginkitDottedBackground({
         const doResize = () => {
             const width = container.clientWidth || window.innerWidth;
             const height = container.clientHeight || window.innerHeight;
+            // Бюджет пикселей: два полноэкранных прохода (перлин + точки) на
+            // большом мониторе съедают кадр. Ограничиваем площадь канваса —
+            // фон мягкий, разницы не видно, а fps растёт в разы.
+            renderer.dpr = computeDpr(width, height);
             renderer.setSize(width, height);
             camera.perspective({ aspect: gl.canvas.width / gl.canvas.height });
             if (renderTargetRef.current && renderTargetRef.current.setSize) {
+                // Перлин рисуем в 1/4 разрешения: шум низкочастотный, а точечный
+                // шейдер всё равно берёт цвет в центре ячейки (cellSize ≈ 36px).
                 renderTargetRef.current.setSize(
-                    gl.canvas.width,
-                    gl.canvas.height
+                    Math.max(64, Math.round(gl.canvas.width / 4)),
+                    Math.max(64, Math.round(gl.canvas.height / 4))
                 );
             }
             if (perlinProgramRef.current) {
@@ -573,7 +597,7 @@ function OriginkitDottedBackground({
             dotProgram.uniforms.uUseGlyphAtlas.value = 1;
         }
 
-        const frameInterval = 1e3 / 30;
+        const frameInterval = 1e3 / 24;
         const update = (time: number) => {
             if (!isPlayingRef.current) {
                 rafIdRef.current = null;
@@ -782,7 +806,7 @@ function OriginkitDottedBackground({
                         return;
                     }
                     const last = lastTimeRef.current;
-                    const frameInterval = 1e3 / 30;
+                    const frameInterval = 1e3 / 24;
                     if (time - last < frameInterval) {
                         rafIdRef.current = requestAnimationFrame(update);
                         return;

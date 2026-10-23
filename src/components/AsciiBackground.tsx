@@ -58,6 +58,12 @@ const DEFAULT_POST: Required<PostEffects> = {
 
 const GRAIN_TILE_SIZE = 96;
 
+/** Число оттенков яркости в таблице цвета ячейки (квантизация мерцания) */
+const K_LEVELS = 12;
+/** Диапазон множителя яркости ячейки (как в исходной формуле 0.55…1.0) */
+const K_MIN = 0.55;
+const K_MAX = 1;
+
 /** Допуск цвета при удалении фона картинки (евклидово RGB-расстояние):
  * пиксели, связанные с рамкой и близкие к её среднему цвету, становятся
  * прозрачными — светлый фон картинки сливается с тёмным фоном эффекта,
@@ -221,10 +227,21 @@ export default function AsciiBackground({
     let imageReady = false;
     let prepared: HTMLCanvasElement | null = null;
     let grainPattern: CanvasPattern | null = null;
+    /** Время следующего «всплеска» глитча */
+    let nextGlitchAt = 0;
 
     let lum = new Float32Array(0);
     let rgb = new Float32Array(0);
     let phase = new Float32Array(0);
+    /** Индексы «живых» ячеек (с ненулевой яркостью) — по ним считаем кадр */
+    let visible = new Int32Array(0);
+    /** Смещение LUT цвета ячейки в colorLut */
+    let lutIndex = new Int32Array(0);
+    /** LUT цвета: K_LEVELS оттенков яркости на каждую ячейку */
+    let colorLut: string[] = [];
+    /** X/Y видимых ячеек (без деления в кадре) */
+    let visibleX = new Int16Array(0);
+    let visibleY = new Int16Array(0);
     let vignetteGrad: CanvasGradient | null = null;
     let scanPattern: CanvasPattern | null = null;
 
@@ -234,16 +251,10 @@ export default function AsciiBackground({
       y: number,
       s: number,
     ) {
-      g.beginPath();
-      const extended = g as CanvasRenderingContext2D & {
-        roundRect?: (x: number, y: number, w: number, h: number, r: number) => void;
-      };
-      if (typeof extended.roundRect === "function") {
-        extended.roundRect(x, y, s, s, Math.min(2, s * 0.3));
-      } else {
-        g.rect(x, y, s, s);
-      }
-      g.fill();
+      // Воксели рисуются квадратами: path+roundRect на каждой ячейке
+      // стоит в 3–4 раза дороже fillRect, а разница в 1 px незаметна
+      // в пиксельной эстетике.
+      g.fillRect(x, y, s, s);
     }
 
     function buildGrainTile(): HTMLCanvasElement | null {
@@ -387,6 +398,48 @@ export default function AsciiBackground({
         phase[i] = Math.random() * Math.PI * 2;
       }
 
+      // Список ячеек, которые вообще могут что-то рисовать. Без него
+      // каждый кадр перебирал все ячейки сетки (в мелкой ячейке их
+      // тысячи, а видимых — сотни).
+      const shimmerAmp = (animIntensity / 100) * 0.7;
+      const baseThr = 0.04 / (1 + shimmerAmp);
+      const edgeThr = edgeEmphasis > 0 ? 0.04 / (edgeEmphasis / 100) : Infinity;
+      const vis: number[] = [];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          if (lum[i] >= baseThr * 0.8) {
+            vis.push(i);
+            continue;
+          }
+          if (edgeEmphasis > 0) {
+            const left = x > 0 ? lum[i - 1] : 0;
+            const up = y > 0 ? lum[i - cols] : 0;
+            if (left >= edgeThr || up >= edgeThr) vis.push(i);
+          }
+        }
+      }
+      visible = new Int32Array(vis);
+      visibleX = new Int16Array(vis.length);
+      visibleY = new Int16Array(vis.length);
+      lutIndex = new Int32Array(n);
+      colorLut = new Array(vis.length * K_LEVELS);
+      for (let vi = 0; vi < vis.length; vi++) {
+        const i = visible[vi];
+        visibleX[vi] = i % cols;
+        visibleY[vi] = (i / cols) | 0;
+        lutIndex[i] = vi;
+        const r = rgb[i * 3];
+        const g = rgb[i * 3 + 1];
+        const b = rgb[i * 3 + 2];
+        for (let l = 0; l < K_LEVELS; l++) {
+          const k = K_MIN + (K_MAX - K_MIN) * (l / (K_LEVELS - 1));
+          colorLut[vi * K_LEVELS + l] = `rgb(${Math.round(r * k)},${Math.round(
+            g * k,
+          )},${Math.round(b * k)})`;
+        }
+      }
+
       vignetteGrad = ctx.createRadialGradient(
         cssW / 2,
         cssH / 2,
@@ -423,26 +476,28 @@ export default function AsciiBackground({
       sceneCtx.clearRect(0, 0, cssW, cssH);
       const speedK = 0.6 + (animSpeed / 100) * 2.4;
       const shimmerAmp = (animIntensity / 100) * 0.7;
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const i = y * cols + x;
-          let v = lum[i];
-          if (edgeEmphasis > 0) {
-            const left = x > 0 ? lum[i - 1] : v;
-            const up = y > 0 ? lum[i - cols] : v;
-            v += ((Math.abs(v - left) + Math.abs(v - up)) * edgeEmphasis) / 100;
-          }
-          v *= 1 + shimmerAmp * Math.sin(t * 0.001 * speedK + phase[i]);
-          v = v < 0 ? 0 : v > 1 ? 1 : v;
-          if (v < 0.04) continue;
-          const size = Math.max(1.5, cellSize * v);
-          const pad = (cellSize - size) / 2;
-          const k = 0.55 + 0.45 * v;
-          sceneCtx.fillStyle = `rgb(${Math.round(rgb[i * 3] * k)},${Math.round(
-            rgb[i * 3 + 1] * k,
-          )},${Math.round(rgb[i * 3 + 2] * k)})`;
-          drawBox(sceneCtx, x * cellSize + pad, y * cellSize + pad, size);
+      for (let vi = 0; vi < visible.length; vi++) {
+        const i = visible[vi];
+        const x = visibleX[vi];
+        const y = visibleY[vi];
+        let v = lum[i];
+        if (edgeEmphasis > 0) {
+          const left = x > 0 ? lum[i - 1] : v;
+          const up = y > 0 ? lum[i - cols] : v;
+          v += ((Math.abs(v - left) + Math.abs(v - up)) * edgeEmphasis) / 100;
         }
+        v *= 1 + shimmerAmp * Math.sin(t * 0.001 * speedK + phase[i]);
+        v = v < 0 ? 0 : v > 1 ? 1 : v;
+        if (v < 0.04) continue;
+        const size = Math.max(1.5, cellSize * v);
+        const pad = (cellSize - size) / 2;
+        // Оттенок берём из готовой таблицы: строки цвета не строятся
+        // в каждом кадре (иначе на кадр — тысячи аллокаций).
+        let lv = Math.round(((v - K_MIN) / (K_MAX - K_MIN)) * (K_LEVELS - 1));
+        if (lv < 0) lv = 0;
+        else if (lv > K_LEVELS - 1) lv = K_LEVELS - 1;
+        sceneCtx.fillStyle = colorLut[lutIndex[i] * K_LEVELS + lv];
+        drawBox(sceneCtx, x * cellSize + pad, y * cellSize + pad, size);
       }
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -477,7 +532,11 @@ export default function AsciiBackground({
       if (pfx.filmGrain.enabled && grainPattern) {
         ctx.save();
         ctx.globalAlpha = 0.03 + (pfx.filmGrain.intensity / 100) * 0.09;
-        ctx.translate(-Math.random() * GRAIN_TILE_SIZE, -Math.random() * GRAIN_TILE_SIZE);
+        // Плавный сдвиг зерна: раньше смещение было случайным каждый кадр —
+        // поле шума дёргалось и выглядело как «дрожание» шапки.
+        const gx = (t * 0.02) % GRAIN_TILE_SIZE;
+        const gy = (t * 0.013) % GRAIN_TILE_SIZE;
+        ctx.translate(-gx, -gy);
         ctx.fillStyle = grainPattern;
         ctx.fillRect(0, 0, cssW + GRAIN_TILE_SIZE, cssH + GRAIN_TILE_SIZE);
         ctx.restore();
@@ -496,10 +555,10 @@ export default function AsciiBackground({
         ctx.fillRect(0, 0, cssW, cssH);
       }
 
-      if (
-        pfx.glitch.enabled &&
-        Math.random() < 0.01 + (pfx.glitch.intensity / 100) * 0.05
-      ) {
+      // Глитч — плановыми «всплесками» раз в несколько секунд. Раньше он
+      // срабатывал случайно в каждом кадре, из-за чего картинка скакала.
+      if (pfx.glitch.enabled && t >= nextGlitchAt) {
+        nextGlitchAt = t + 1800 + Math.random() * 3200;
         const slices = 1 + ((Math.random() * 2) | 0);
         for (let s = 0; s < slices; s++) {
           const syDev = Math.random() * Math.max(1, canvas.height - 20);
@@ -535,7 +594,15 @@ export default function AsciiBackground({
     const start = () => {
       // Без анимации (animIntensity <= 0) цикл не нужен — экономим батарею/CPU:
       // статичный кадр рисуется один раз при инициализации
-      if (running || reducedMotion || !hasRaf || disposed || animIntensity <= 0) return;
+      if (
+        running ||
+        reducedMotion ||
+        !hasRaf ||
+        disposed ||
+        animIntensity <= 0 ||
+        document.hidden
+      )
+        return;
       running = true;
       raf = window.requestAnimationFrame(loop);
     };
@@ -574,6 +641,21 @@ export default function AsciiBackground({
     }
     document.addEventListener("visibilitychange", onVisibility);
 
+    // Слой вне экрана не анимируем: пока пользователь листает галерею,
+    // шапка не должна нагружать главный поток
+    let io: IntersectionObserver | undefined;
+    if (typeof IntersectionObserver === "function") {
+      io = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[entries.length - 1];
+          if (entry.isIntersecting) start();
+          else stop();
+        },
+        { rootMargin: "150px" },
+      );
+      io.observe(container);
+    }
+
     if (src) {
       image = new Image();
       image.onload = () => {
@@ -589,6 +671,7 @@ export default function AsciiBackground({
       disposed = true;
       stop();
       ro?.disconnect();
+      io?.disconnect();
       window.removeEventListener("resize", onWindowResize);
       document.removeEventListener("visibilitychange", onVisibility);
     };

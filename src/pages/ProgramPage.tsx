@@ -2,6 +2,7 @@ import type {
   Program,
   ProgramCareer,
   ProgramGroup,
+  ProgramOption,
   ProgramProfile,
   Profession,
 } from "../types/test";
@@ -97,6 +98,56 @@ function Places({ profile }: { profile: ProgramProfile }) {
   return <p className="text-sm text-stone-600">{parts.join(" · ")}</p>;
 }
 
+/**
+ * Варианты поступления: форма, база, срок, места и стоимость.
+ * Таблица на узких экранах превращается в список карточек.
+ */
+function AdmissionOptions({
+  program,
+  options,
+}: {
+  program: Program;
+  options: ProgramOption[];
+}) {
+  return (
+    <ul className="flex flex-col gap-3" data-testid="admission-options">
+      {options.map((option, i) => {
+        const places: string[] = [];
+        if (option.budgetPlaces !== null) {
+          places.push(`бюджетных мест: ${option.budgetPlaces}`);
+        }
+        if (option.paidPlaces !== null) {
+          places.push(`платных мест: ${option.paidPlaces}`);
+        }
+        return (
+          <li
+            key={`${option.form}-${option.base ?? i}`}
+            className="border-2 border-stone-200 bg-stone-50/60 p-2"
+          >
+            <p className="text-sm font-medium text-stone-800">
+              {option.form}
+              {option.base ? ` · ${option.base.toLowerCase()}` : ""}
+            </p>
+            <ul className="mt-1 flex flex-col gap-0.5 text-sm text-stone-600">
+              {option.duration && <li>Срок обучения: {option.duration}</li>}
+              {places.length > 0 && <li>На 2026 год — {places.join(", ")}</li>}
+              {option.costPerYear && <li>Стоимость: {option.costPerYear}</li>}
+              {option.profiles && option.profiles.length > 0 && (
+                <li>
+                  Направления:{" "}
+                  {option.profiles
+                    .filter((p) => !isProfileRedundant(program, p))
+                    .join(", ") || option.profiles.join(", ")}
+                </li>
+              )}
+            </ul>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** Название профиля дублирует название программы — не показываем его повторно */
 function isProfileRedundant(program: Program, profile: string): boolean {
   const normalize = (s: string) =>
@@ -171,6 +222,9 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
       <div className="mt-2">
         <Places profile={profile} />
       </div>
+      {profile.note && (
+        <p className="mt-1 text-sm text-stone-500">{profile.note}</p>
+      )}
       {profile.exams && (
         <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
           {profile.exams.map((exam) => (
@@ -316,6 +370,9 @@ export default function ProgramPage({
           program.profileDetails.map((profile) => (
             <Card key={profile.name} title="Приём">
               <Places profile={profile} />
+              {profile.note && (
+                <p className="mt-1 text-sm text-stone-500">{profile.note}</p>
+              )}
               {profile.exams && (
                 <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
                   {profile.exams.map((exam) => (
@@ -330,6 +387,12 @@ export default function ProgramPage({
               )}
             </Card>
           ))}
+
+        {program.admissionOptions && program.admissionOptions.length > 0 && (
+          <Card title="Варианты поступления">
+            <AdmissionOptions program={program} options={program.admissionOptions} />
+          </Card>
+        )}
 
         {program.admission && (
           <Card title="Вступительные испытания и минимальные баллы">

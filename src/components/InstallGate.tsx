@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { isStandalone } from "../lib/pwa";
+import { useEffect, useState } from "react";
+import {
+  canPromptInstall,
+  isStandalone,
+  promptInstall,
+  subscribeToInstallPrompt,
+} from "../lib/pwa";
 import installHintGif from "../assets/install-hint.gif";
 import PixelButton from "./PixelButton";
 import PixelCard from "./PixelCard";
@@ -8,14 +13,18 @@ const instructions: Record<string, string> = {
   Android:
     "Откройте меню браузера (⋮) и выберите «Установить приложение» / «Добавить на главный экран».",
   iOS: "В Safari нажмите кнопку «Поделиться» и выберите «На экран “Домой”».",
-  Windows:
-    "В Chrome или Edge нажмите значок установки в адресной строке или меню → «Установить приложение».",
-  macOS:
-    "В Chrome или Edge нажмите значок установки в адресной строке или меню → «Установить приложение».",
 };
 
 export default function InstallGate({ children }: { children: React.ReactNode }) {
   const [dismissed, setDismissed] = useState(false);
+  const [installAvailable, setInstallAvailable] = useState(canPromptInstall);
+  const [manualHintVisible, setManualHintVisible] = useState(false);
+
+  useEffect(
+    () => subscribeToInstallPrompt(() => setInstallAvailable(true)),
+    [],
+  );
+
   if (isStandalone() || dismissed) return <>{children}</>;
 
   return (
@@ -47,12 +56,37 @@ export default function InstallGate({ children }: { children: React.ReactNode })
       <PixelButton
         type="button"
         variant="primary"
+        data-testid="install-app"
+        onClick={() => {
+          if (canPromptInstall()) {
+            void promptInstall();
+            return;
+          }
+          // нативный промпт недоступен (iOS, некоторые браузеры) —
+          // показываем ручную инструкцию вместо ничего не делающей кнопки
+          setManualHintVisible(true);
+        }}
+        className="min-h-11 px-6 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+      >
+        Установить приложение
+      </PixelButton>
+
+      {manualHintVisible && !installAvailable && (
+        <p className="text-sm text-stone-600" role="note">
+          Автоматическая установка недоступна в этом браузере — установите
+          вручную по инструкции для вашей платформы выше.
+        </p>
+      )}
+
+      <PixelButton
+        type="button"
+        variant="neutral"
         data-testid="continue-in-browser"
         onClick={() => {
           setDismissed(true);
           // после скрытия гейта контент смещается вверх — возвращаем
           // прокрутку к началу страницы, иначе остаёмся «в глубине»
-          requestAnimationFrame(() => window.scrollTo(0, 0));
+        requestAnimationFrame(() => window.scrollTo(0, 0));
         }}
         className="min-h-11 px-6 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
       >

@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import GlitchText from "../src/components/GlitchText";
 import AsciiBackground from "../src/components/AsciiBackground";
 import ProfessionCarousel from "../src/components/ProfessionCarousel";
-import type { Profession } from "../src/types/test";
+import type { Profession, Program } from "../src/types/test";
+import ProgramPage from "../src/pages/ProgramPage";
+import programsData from "../src/data/programs.json";
 
 afterEach(cleanup);
 
@@ -98,6 +100,38 @@ describe("ProfessionCarousel", () => {
     expect((getByTestId("carousel-next") as HTMLButtonElement).disabled).toBe(
       true,
     );
+  });
+});
+
+describe("ProgramPage", () => {
+  const program: Program = {
+    ...(programsData[0] as Program),
+    admissionOptions: [
+      {
+        form: "Очная",
+        base: "На базе 11 классов",
+        duration: "1 год 10 месяцев",
+        budgetPlaces: null,
+        paidPlaces: 30,
+        costPerYear: null,
+        profiles: null,
+      },
+    ],
+  };
+
+  it("показывает варианты поступления с местами и сроком", () => {
+    const { getByTestId, getAllByText } = render(
+      <ProgramPage
+        program={program}
+        professions={[]}
+        onBack={() => {}}
+        onOpenProfession={() => {}}
+      />,
+    );
+    expect(getByTestId("admission-options")).toBeTruthy();
+    expect(getAllByText(/на базе 11 классов/i).length).toBeGreaterThan(0);
+    expect(getAllByText(/платных мест: 30/).length).toBeGreaterThan(0);
+    expect(getAllByText(/1 год 10 месяцев/).length).toBeGreaterThan(0);
   });
 });
 

@@ -3,79 +3,6 @@ import AsciiBackground from "./AsciiBackground";
 import DotMatrixBackground from "./DotMatrixBackground";
 import GlitchText from "./GlitchText";
 import logo from "../assets/logo.webp";
-import pguLogo from "../assets/pgu-logo.png";
-
-/** Перекраска хроматических пикселей в оранжевый: синий логотип ПГУ
- *  приводится к фирменному оранжевому, белые/чёрные детали не трогаются */
-function recolorToOrange(img: HTMLImageElement): string | null {
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth || img.width;
-  c.height = img.naturalHeight || img.height;
-  if (c.width < 1 || c.height < 1) return null;
-  const g = c.getContext("2d");
-  if (!g) return null;
-  try {
-    g.drawImage(img, 0, 0);
-    const data = g.getImageData(0, 0, c.width, c.height);
-    const px = data.data;
-    for (let i = 0; i < px.length; i += 4) {
-      if (px[i + 3] === 0) continue;
-      const r = px[i] / 255;
-      const gr = px[i + 1] / 255;
-      const b = px[i + 2] / 255;
-      const max = Math.max(r, gr, b);
-      const min = Math.min(r, gr, b);
-      const l = (max + min) / 2;
-      const d = max - min;
-      const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-      // Строгая оранжевая гамма без выбросов: насыщенность дотягиваю до 0.85,
-      // светлоту держу в 0.34–0.78 — без белых/жёлтых/красных, но достаточно
-      // светло на тёмном фоне шапки. Оттенок 26°
-      const s2 = Math.min(1, Math.max(s, 0.85));
-      const l2 = Math.min(0.78, 0.34 + l * 0.44);
-      {
-        const q = l2 < 0.5 ? l2 * (1 + s2) : l2 + s2 - l2 * s2;
-        const p = 2 * l2 - q;
-        const t = (h: number) => {
-          const x = ((h % 1) + 1) % 1;
-          if (x < 1 / 6) return p + (q - p) * 6 * x;
-          if (x < 1 / 2) return q;
-          if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
-          return p;
-        };
-        // Каналы: r = f(h+1/3), g = f(h), b = f(h-1/3)
-        px[i] = Math.round(t(26 / 360 + 1 / 3) * 255);
-        px[i + 1] = Math.round(t(26 / 360) * 255);
-        px[i + 2] = Math.round(t(26 / 360 - 1 / 3) * 255);
-      }
-    }
-    g.putImageData(data, 0, 0);
-    return c.toDataURL("image/png");
-  } catch {
-    return null;
-  }
-}
-
-/** Загружает логотип и возвращает data-URL его оранжевой версии.
- *  ok=false — перекрасить не удалось (canvas недоступен): покажем исходник,
- *  доведя до оранжевого CSS-фильтром */
-function useOrangeLogo(src: string): { src: string; ok: boolean } {
-  const [out, setOut] = useState<{ src: string; ok: boolean } | null>(null);
-  useEffect(() => {
-    let disposed = false;
-    const img = new Image();
-    img.onload = () => {
-      if (disposed) return;
-      const rec = recolorToOrange(img);
-      setOut(rec ? { src: rec, ok: true } : { src, ok: false });
-    };
-    img.src = src;
-    return () => {
-      disposed = true;
-    };
-  }, [src]);
-  return out ?? { src, ok: false };
-}
 
 /**
  * Фон на весь экран. Переключатель для быстрого отката:
@@ -84,8 +11,43 @@ function useOrangeLogo(src: string): { src: string; ok: boolean } {
  */
 const FULLSCREEN_BACKGROUND = false;
 
+/** Стандартный глиф ₽ (U+20BD), отрисованный шрифтом приложения в canvas →
+ *  data URL: подаётся в AsciiBackground как часть единого фона шапки.
+ *  Ждём загрузку Minecraft-шрифта — без него canvas рисует Courier-фолбэк.
+ *  null — canvas/font API недоступны (jsdom), слой не рисуем */
+function useRubleGlyphImage(): string | null {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    const draw = () => {
+      if (disposed) return;
+      const size = 256;
+      const c = document.createElement("canvas");
+      c.width = size;
+      c.height = size;
+      const g = c.getContext("2d");
+      if (!g) return;
+      g.fillStyle = "#f97316";
+      g.font = "bold 200px 'Arial', sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText("\u20BD", size / 2, size / 2 + 10);
+      setSrc(c.toDataURL("image/png"));
+    };
+    // Arial — системный шрифт, грузить нечего; рисуем сразу (но через
+    // document.fonts.ready на случай блокировки/подкачки шрифтов браузером)
+    (document.fonts?.ready ?? Promise.resolve())
+      .catch(() => {})
+      .then(draw);
+    return () => {
+      disposed = true;
+    };
+  }, []);
+  return src;
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
-  const headerLogo = useOrangeLogo(pguLogo);
+  const rubleGlyph = useRubleGlyphImage();
 
   if (FULLSCREEN_BACKGROUND) {
     return (
@@ -142,60 +104,49 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Слой 1: процедурный фон крупными ячейками (без герба).
             Яркость/контраст подняты: чистый процедурный градиент темнее фото,
             без этого воксели после нормализации почти исчезают */}
+        {/* Процедурный фон шапки + оранжевая вуаль: градиент сверху даёт
+            тёплое свечение, снизу затемняет — текст читается увереннее,
+            а переход к светлому контенту выглядит мягче */}
         <AsciiBackground
           className="absolute inset-0"
-          cellSize={9}
-          brightness={45}
-          contrast={130}
-          animIntensity={50}
+          cellSize={8}
+          brightness={55}
+          contrast={140}
+          animIntensity={60}
         />
-        {/* Логотип крупнее, но высота шапки прежняя: +32px к логотипу
-            компенсированы -32px вертикальных отступов. self-start — левый
-            край логотипа совпадает с началом текста страницы (px-4) */}
-        <div className="relative mx-auto flex max-w-xl flex-col items-center gap-2 px-4 py-1 sm:py-5">
-          {/* Логотип ПГУ вместо герба — воксельный слой, СТАТИЧНЫЙ (без
-              анимации — она давала лаги и «кривые» буквы), с постэффектами
-              сканлайны + зерно (один наложенный кадр). Bloom выключен:
-              аддитивное свечение неизбежно даёт белые пиксели. Глитч —
-              разовый артефакт на статике. Анимация — только у фона шапки */}
-          <div
-            className="relative aspect-[1322/487] w-full max-w-[416px] self-start"
-            style={
-              headerLogo.ok
-                ? undefined
-                : {
-                    filter:
-                      "sepia(1) saturate(3.5) hue-rotate(-18deg) brightness(1.15)",
-                  }
-            }
-          >
-            <AsciiBackground
-              className="absolute inset-0"
-              src={headerLogo.src}
-              fit="contain"
-              imageScale={1}
-              cellSize={2}
-              brightness={90}
-              contrast={160}
-              animIntensity={0}
-              backgroundColor="transparent"
-              tintOpacity={0}
-              proceduralBg={false}
-              postEffects={{
-                scanLines: { enabled: true, intensity: 30 },
-                vignette: { enabled: false, intensity: 0 },
-                bloom: { enabled: false, intensity: 0 },
-                glitch: { enabled: false, intensity: 0 },
-                filmGrain: { enabled: true, intensity: 25 },
-              }}
+        {/* Знак рубля — часть общего воксельного полотна (та же ячейка 3.6),
+            но ярче и контрастнее фона — выделяется из шума; размер подобран
+            так, чтобы знак был виден полностью, без обрезки */}
+        <AsciiBackground
+          className="absolute inset-0"
+          src={rubleGlyph ?? undefined}
+          fit="contain"
+          imageScale={1.35}
+          imageOffsetX={0.34}
+          cellSize={3.6}
+          brightness={110}
+          contrast={160}
+          animIntensity={60}
+          backgroundColor="transparent"
+          proceduralBg={false}
+          tintOpacity={0}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-orange-500/15 via-transparent to-stone-950/70" />
+        <div className="relative mx-auto flex max-w-xl items-start justify-between gap-4 px-4 py-10 sm:py-12">
+          <div className="flex flex-col gap-2">
+            <GlitchText
+              as="p"
+              text="ПГУ им. Шолом-Алейхема"
+              speed={2800}
+              className="text-sm font-semibold uppercase tracking-widest text-orange-300 sm:text-base"
+            />
+            <GlitchText
+              as="h1"
+              text="Экономика — твой выбор"
+              speed={2200}
+              className="text-left text-3xl font-bold leading-tight sm:text-4xl"
             />
           </div>
-          <GlitchText
-            as="h1"
-            text="Экономика — твой выбор"
-            speed={2200}
-            className="self-start text-left text-2xl font-bold leading-tight sm:text-3xl"
-          />
         </div>
       </header>
       <main className="mx-auto max-w-xl px-4 py-6">{children}</main>

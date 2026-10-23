@@ -145,18 +145,23 @@
   z-index: 1;
 }
 
+/* Глитч идёт «ступеньми»: clip-path меняется только в опорных точках.
+   Плавная интерполяция перерисовывала текст на каждом кадре (60 раз в
+   секунду) и дёргала всю шапку; ступени дают настоящий «рваный» глитч
+   почти без нагрузки на перерисовку. */
 .glitch--on .glitch__layer--a,
 .glitch--hover:hover .glitch__layer--a {
   opacity: 0.85;
   color: #fdba74;
-  animation: glitch-anim-a var(--glitch-speed, 2200ms) linear infinite;
+  animation: glitch-anim-a var(--glitch-speed, 2200ms) steps(1, end) infinite;
 }
 
 .glitch--on .glitch__layer--b,
 .glitch--hover:hover .glitch__layer--b {
   opacity: 0.85;
   color: #fbbf24;
-  animation: glitch-anim-b calc(var(--glitch-speed, 2200ms) * 1.35) linear infinite;
+  animation: glitch-anim-b calc(var(--glitch-speed, 2200ms) * 1.35) steps(1, end)
+    infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -269,4 +274,52 @@
     .pixel-btn *
   ):not(.bg-white):not(.bg-white *) {
   color: #fb923c;
+}
+
+/* Вылет карточки из колоды фотографий (клуб).
+   Анимация запускается при монтировании, поэтому карточка стартует
+   ровно из места, откуда её отпустили (--fly-from), без «прыжка». */
+@keyframes stack-fly-right {
+  0% {
+    transform: translate3d(var(--fly-from, 0px), 0, 0) rotate(0deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(130%, 0, 0) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes stack-fly-left {
+  0% {
+    transform: translate3d(var(--fly-from, 0px), 0, 0) rotate(0deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(-130%, 0, 0) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes stack-fly-right {
+    0% {
+      transform: translate3d(var(--fly-from, 0px), 0, 0) rotate(0deg);
+      opacity: 0.95;
+    }
+    100% {
+      transform: translate3d(130%, 0, 0) rotate(0deg);
+      opacity: 0;
+    }
+  }
+  @keyframes stack-fly-left {
+    0% {
+      transform: translate3d(var(--fly-from, 0px), 0, 0) rotate(0deg);
+      opacity: 0.95;
+    }
+    100% {
+      transform: translate3d(-130%, 0, 0) rotate(0deg);
+      opacity: 0;
+    }
+  }
 }

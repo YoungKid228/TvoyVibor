@@ -40,6 +40,35 @@ function isProfileRedundant(program: Program, profile: string): boolean {
   return normalize(program.title) === normalize(profile);
 }
 
+/**
+ * Краткая сводка по вариантам поступления для карточки направления:
+ * «Очная: 20 бюджетных, 3 платных · Заочная: 15 платных».
+ */
+function formatAdmissionSummary(program: Program): string | null {
+  const options = program.admissionOptions;
+  if (!options || options.length === 0) return null;
+  const byForm = new Map<string, string[]>();
+  for (const option of options) {
+    const places: string[] = [];
+    if (option.budgetPlaces !== null) places.push(`${option.budgetPlaces} бюджетных`);
+    if (option.paidPlaces !== null) places.push(`${option.paidPlaces} платных`);
+    const key = option.form;
+    const merged = byForm.get(key) ?? [];
+    // Одна и та же форма может идти по двум базам — места перечисляем один раз
+    const unique = places.filter((p) => !merged.includes(p));
+    byForm.set(key, [...merged, ...unique]);
+  }
+  const parts: string[] = [];
+  for (const [form, places] of byForm) {
+    parts.push(
+      places.length > 0
+        ? `${form}: ${places.join(", ")}`
+        : `${form}: срок уточняется`,
+    );
+  }
+  return parts.length > 0 ? `Мест на 2026 год — ${parts.join(" · ")}` : null;
+}
+
 function formatProfilesLine(program: Program): string | null {
   if (program.profiles.length === 0) return null;
   if (program.profiles.length === 1) {
@@ -94,6 +123,11 @@ export default function DirectionsPage({
               <span className="mt-1 block text-sm text-stone-500">
                 {formatProgramLine(program)}
               </span>
+              {formatAdmissionSummary(program) && (
+                <span className="mt-1 block text-sm text-stone-500">
+                  {formatAdmissionSummary(program)}
+                </span>
+              )}
               <span className="mt-1 block text-sm text-stone-500">
                 Профессий в галерее: {countByProgram.get(program.id) ?? 0}
               </span>

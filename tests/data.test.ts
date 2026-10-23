@@ -310,6 +310,111 @@ describe("programs", () => {
     expect(analytics.forms).toEqual(["Очная"]);
   });
 
+  it("carries admission options for every program", () => {
+    for (const program of programs) {
+      expect(program.admissionOptions, program.id).not.toBeNull();
+      expect(program.admissionOptions!.length, program.id).toBeGreaterThan(0);
+      for (const option of program.admissionOptions!) {
+        expect(option.form, program.id).toBeTruthy();
+        expect(option.duration, program.id).toBeTruthy();
+        expect(
+          option.budgetPlaces !== null || option.paidPlaces !== null,
+          `${program.id}: ${option.form}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps СПО terms and places from the 2026 admission table", () => {
+    const byId = new Map(programs.map((p) => [p.id, p]));
+
+    const banking = byId.get("banking")!.admissionOptions!;
+    expect(banking).toHaveLength(3);
+    expect(banking[0]).toMatchObject({
+      form: "Очная",
+      base: "На базе 11 классов",
+      duration: "1 год 10 месяцев",
+      paidPlaces: 30,
+    });
+    expect(banking[1]).toMatchObject({
+      form: "Заочная",
+      base: "На базе 9 классов",
+      duration: "3 года 10 месяцев",
+      paidPlaces: 30,
+    });
+    expect(banking[2]).toMatchObject({
+      form: "Заочная",
+      base: "На базе 11 классов",
+      duration: "2 года 10 месяцев",
+      paidPlaces: 30,
+    });
+
+    const ea = byId.get("econ_accounting")!;
+    expect(ea.forms).toEqual(["Очная", "Заочная"]);
+    expect(ea.admissionOptions).toHaveLength(3);
+    expect(ea.admissionOptions![0]).toMatchObject({
+      form: "Очная",
+      base: "На базе 11 классов",
+      duration: "1 год 10 месяцев",
+      paidPlaces: 20,
+    });
+    expect(ea.admissionOptions![1]).toMatchObject({
+      form: "Очная",
+      base: "На базе 9 классов",
+      duration: "2 года 10 месяцев",
+      paidPlaces: 30,
+    });
+    expect(ea.admissionOptions![2]).toMatchObject({
+      form: "Заочная",
+      base: "На базе 11 классов",
+      duration: "2 года 10 месяцев",
+      paidPlaces: 20,
+    });
+  });
+
+  it("keeps bachelor and master places, costs and exams", () => {
+    const byId = new Map(programs.map((p) => [p.id, p]));
+
+    const bachelor = byId.get("finance_credit")!.admissionOptions!;
+    expect(bachelor).toHaveLength(2);
+    expect(bachelor[0]).toMatchObject({
+      form: "Очная",
+      duration: "4 года",
+      budgetPlaces: 20,
+      paidPlaces: 3,
+      costPerYear: "173 500 руб./год",
+    });
+    expect(bachelor[1]).toMatchObject({
+      form: "Заочная",
+      duration: "4 года 6 месяцев",
+      paidPlaces: 15,
+      costPerYear: "127 500 руб./год",
+    });
+
+    const masters = byId.get("masters")!;
+    expect(masters.costPerYearByForm).toMatchObject({
+      "Очная": "187 500 руб./год",
+    });
+    expect(masters.admission).toHaveLength(3);
+    const admissionText = JSON.stringify(masters.admission);
+    expect(admissionText).toContain("40 баллов");
+    expect(admissionText).toContain("100");
+    expect(admissionText).toContain("Русский");
+    expect(masters.admissionOptions).toHaveLength(2);
+    expect(masters.admissionOptions![0]).toMatchObject({
+      form: "Очная",
+      duration: "2 года",
+      paidPlaces: 10,
+      costPerYear: "187 500 руб./год",
+    });
+    expect(masters.admissionOptions![1]).toMatchObject({
+      form: "Заочная",
+      duration: "2 года 6 месяцев",
+      budgetPlaces: 8,
+      paidPlaces: 10,
+    });
+  });
+
   it("shows competency texts without code prefixes", () => {
     for (const program of programs) {
       const items = [
