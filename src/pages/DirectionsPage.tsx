@@ -6,6 +6,7 @@ import {
   profileDuration,
   profileForm,
   profileSummary,
+  programSummary,
 } from "../lib/profileCards";
 
 type Props = {
@@ -155,6 +156,10 @@ export default function DirectionsPage({
                     })}
                   </div>
 
+                  <span className="mt-1 block text-sm text-stone-500">
+                    Профессий в галерее: {countByProgram.get(program.id) ?? 0}
+                  </span>
+
                   <button
                     type="button"
                     data-testid="directions-open-program"
@@ -167,6 +172,8 @@ export default function DirectionsPage({
               </div>
             );
           }
+
+          const summary = programSummary(program);
 
           return (
             <button
@@ -189,6 +196,11 @@ export default function DirectionsPage({
                 {formatProgramLine(program) && (
                   <span className="mt-1 block text-sm text-stone-500">
                     {formatProgramLine(program)}
+                  </span>
+                )}
+                {summary && (
+                  <span className="mt-1 line-clamp-2 min-h-[2.5rem] block text-sm text-stone-600">
+                    {summary}
                   </span>
                 )}
                 <span className="mt-1 block text-sm text-stone-500">

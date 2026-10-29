@@ -28,7 +28,21 @@ export function profileDuration(
 export function profileSummary(profile: ProgramProfile): string | null {
   const text = profile.description?.join(" ");
   if (!text) return null;
+  return shorten(text);
+}
 
+/**
+ * Краткое описание программы одинаковой длины —
+ * для карточек направлений без отдельных профилей.
+ */
+export function programSummary(program: Program): string | null {
+  const text = program.description?.join(" ");
+  if (!text) return null;
+  return shorten(text);
+}
+
+/** Обрезает текст до PROFILE_SUMMARY_LENGTH по границе слова */
+function shorten(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean.length <= PROFILE_SUMMARY_LENGTH) return clean;
 

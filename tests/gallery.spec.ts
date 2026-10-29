@@ -106,15 +106,16 @@ test("directions: programs, master profiles and related professions", async ({
     page.getByTestId("profile-name").filter({ hasText: "Электронная коммерция" }),
   ).toBeVisible();
   await expect(page.getByText("70 % курсов ведут эксперты рынка", { exact: false })).toBeVisible();
+  // выбрана очная направленность — показывается только её форма и срок
   await expect(page.getByText("Очная: 2 года", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Заочная: 2 года 6 месяцев", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   // ЭБиУР — только заочно, остальные направленности — очно
   // (в переключателе направленностей и в карточке выбранной направленности)
   await expect(page.getByText("Форма обучения: заочная", { exact: true })).toHaveCount(1);
 
-  // переключение профиля магистратуры
+  // переключение направленности магистратуры
   await page
     .getByTestId("profile-switch")
     .filter({ hasText: "Аналитическая экономика" })
@@ -122,6 +123,16 @@ test("directions: programs, master profiles and related professions", async ({
   await expect(
     page.getByTestId("profile-name").filter({ hasText: "Аналитическая экономика" }),
   ).toBeVisible();
+
+  // заочная направленность — только её форма и срок
+  await page
+    .getByTestId("profile-switch")
+    .filter({ hasText: "Экономическая безопасность" })
+    .click();
+  await expect(
+    page.getByText("Заочная: 2 года 6 месяцев", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Очная: 2 года", { exact: true })).toHaveCount(0);
 
   // официальный источник программы
   await expect(

@@ -164,10 +164,15 @@ function isProfileRedundant(program: Program, profile: string): boolean {
 
 function ProgramFacts({
   program,
+  profile,
 }: {
   program: Program;
+  profile?: ProgramProfile;
 }) {
-  const rows = program.forms.map((form) => ({
+  /* Если выбрана направленность, показываем только её форму обучения */
+  const forms =
+    profile?.forms && profile.forms.length > 0 ? profile.forms : program.forms;
+  const rows = forms.map((form) => ({
     form,
     duration:
       program.durationByForm?.[form] ??
@@ -175,7 +180,7 @@ function ProgramFacts({
   }));
   return (
     <ul className="mb-4 mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
-      {rows.length > 1 ? (
+      {rows.length > 1 || profile ? (
         rows.map((r) => (
           <li key={r.form}>
             {r.form}: {r.duration ?? "срок уточняется"}
@@ -425,7 +430,7 @@ export default function ProgramPage({
           {program.department && ` · ${program.department}`}
         </p>
       )}
-      <ProgramFacts program={program} />
+      <ProgramFacts program={program} profile={selectedProfile} />
 
       <div className="flex flex-col gap-6">
         {!isMultiProfile &&
