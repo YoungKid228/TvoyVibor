@@ -87,6 +87,20 @@ describe("ProfessionCarousel", () => {
     expect(onOpen).toHaveBeenCalledWith("credit_specialist");
   });
 
+  it("показывает фотографию профессии в карточке карусели", () => {
+    const { container } = render(
+      <ProfessionCarousel
+        professions={professions}
+        programs={programs}
+        onOpenProfession={() => {}}
+      />,
+    );
+    const images = container.querySelectorAll("img");
+    expect(images.length).toBe(professions.length);
+    expect(images[0].getAttribute("alt")).toBe("Бухгалтер");
+    expect(images[0].getAttribute("src")).toMatch(/accountant/);
+  });
+
   it("кнопки прокрутки заблокированы, пока прокрутка невозможна (jsdom)", () => {
     const { getByTestId } = render(
       <ProfessionCarousel

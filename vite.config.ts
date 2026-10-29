@@ -23,7 +23,7 @@ export default defineConfig({
       injectRegister: "auto",
       /* Шрифт и gif должны кэшироваться для офлайн-запуска */
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,ttf,woff,woff2,gif}"],
+        globPatterns: ["**/*.{js,css,html,svg,ttf,woff,woff2,gif,webp}"],
         /* Фото клуба и галереи ПГУ — отдельно от precache, кэшируются при первом просмотре */
         runtimeCaching: [
           {

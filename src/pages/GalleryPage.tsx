@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Profession, Program } from "../types/test";
 import { programLabel } from "../lib/programLabel";
+import { professionPhoto } from "../lib/professionPhotos";
 import ProfessionCarousel from "../components/ProfessionCarousel";
 import PixelCard from "../components/PixelCard";
 import SpecialText from "../components/SpecialText";
@@ -99,7 +100,9 @@ export default function GalleryPage({
       </div>
 
       <div className="flex flex-col gap-6">
-        {filtered.map((profession) => (
+        {filtered.map((profession) => {
+          const photo = professionPhoto(profession.id);
+          return (
           <PixelCard key={profession.id}>
             <button
               type="button"
@@ -107,6 +110,15 @@ export default function GalleryPage({
               onClick={() => onOpenProfession(profession.id)}
               className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
             >
+              {photo && (
+                <img
+                  src={photo}
+                  alt={profession.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="mb-3 w-full rounded-lg object-cover"
+                />
+              )}
               <span className="block font-medium">{profession.title}</span>
               <span className="mt-1 block text-xs text-orange-700">
                 {programLabel(programById.get(profession.programId))}
@@ -116,7 +128,8 @@ export default function GalleryPage({
               </span>
             </button>
           </PixelCard>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <p className="text-sm text-stone-500">
             По вашему запросу профессий не найдено.

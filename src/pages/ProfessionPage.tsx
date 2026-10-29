@@ -1,4 +1,5 @@
 import type { Profession, ProfessionDetail, Program } from "../types/test";
+import { professionPhoto } from "../lib/professionPhotos";
 import PixelButton from "../components/PixelButton";
 import PixelCard from "../components/PixelCard";
 
@@ -61,6 +62,8 @@ export default function ProfessionPage({
     );
   }
 
+  const photo = professionPhoto(profession.id);
+
   return (
     <section aria-label={profession.title}>
       <PixelButton
@@ -71,6 +74,15 @@ export default function ProfessionPage({
       >
         ← В галерею профессий
       </PixelButton>
+
+      {photo && (
+        <img
+          src={photo}
+          alt={profession.title}
+          decoding="async"
+          className="mb-4 w-full rounded-xl object-cover"
+        />
+      )}
 
       <h2 className="mb-1 text-xl font-semibold">{profession.title}</h2>
       {program && (

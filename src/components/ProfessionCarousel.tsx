@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Profession } from "../types/test";
 import { programLabel } from "../lib/programLabel";
+import { professionPhoto } from "../lib/professionPhotos";
 import PixelCard from "./PixelCard";
 
 /** Минимальные поля программы, нужные карусели (полный Program совместим) */
@@ -24,8 +25,9 @@ const MAX_CARD_W = 320;
 /**
  * Карусель профессий в начале галереи: карточки фиксированного размера,
  * переключение стрелками/свайпом со слайд-анимацией (transform).
- * Фотографии пока не добавлены — используется градиентная заглушка
- * с монограммой профессии. Клик по карточке открывает страницу профессии.
+ * В карточке — фотография профессии, если она загружена, иначе
+ * градиентная заглушка с монограммой. Клик по карточке открывает
+ * страницу профессии.
  */
 export default function ProfessionCarousel({
   professions,
@@ -142,7 +144,9 @@ export default function ProfessionCarousel({
             willChange: "transform",
           }}
         >
-          {professions.map((profession) => (
+          {professions.map((profession) => {
+            const photo = professionPhoto(profession.id);
+            return (
             <div
               key={profession.id}
               className="shrink-0"
@@ -157,12 +161,22 @@ export default function ProfessionCarousel({
                 className="flex h-full w-full flex-col text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
               >
                 <PixelCard className="flex h-full w-full flex-col" style={{ padding: 8 }}>
-                  <span
-                    aria-hidden="true"
-                    className="mb-2 flex h-32 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 text-4xl font-bold text-white/70"
-                  >
-                    {profession.title.charAt(0)}
-                  </span>
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt={profession.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="mb-2 h-32 w-full shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="mb-2 flex h-32 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 text-4xl font-bold text-white/70"
+                    >
+                      {profession.title.charAt(0)}
+                    </span>
+                  )}
                   <span className="block min-h-10 text-sm font-medium leading-snug line-clamp-2">
                     {profession.title}
                   </span>
@@ -172,7 +186,8 @@ export default function ProfessionCarousel({
                 </PixelCard>
               </button>
             </div>
-          ))}
+            );
+          })}
           {professions.length === 0 && (
             <p className="text-sm text-stone-500">Профессии пока не добавлены.</p>
           )}
