@@ -81,12 +81,6 @@ export default function DirectionsPage({
           if (isMultiProfile) {
             const selected =
               selectedProfiles[program.id] ?? program.profiles[0];
-            const selectedProfile = program.profileDetails.find(
-              (p) => p.name === selected,
-            );
-            const selectedSummary = selectedProfile
-              ? profileSummary(selectedProfile)
-              : null;
 
             return (
               <div
@@ -160,12 +154,6 @@ export default function DirectionsPage({
                       );
                     })}
                   </div>
-
-                  {selectedSummary && (
-                    <span className="mt-2 line-clamp-2 min-h-[2.5rem] block text-sm text-stone-600">
-                      {selectedSummary}
-                    </span>
-                  )}
 
                   <button
                     type="button"
