@@ -38,7 +38,7 @@ type View =
   | { name: "gallery" }
   | { name: "profession"; professionId: string }
   | { name: "directions" }
-  | { name: "program"; programId: string }
+  | { name: "program"; programId: string; profileName?: string }
   | { name: "pgu-gallery" }
   | { name: "game" };
 
@@ -152,16 +152,22 @@ export default function App() {
         <DirectionsPage
           programs={programs}
           professions={professions}
-          onOpenProgram={(programId) => setView({ name: "program", programId })}
+          onOpenProgram={(programId, profileName) =>
+            setView({ name: "program", programId, profileName })
+          }
         />
       )}
       {view.name === "program" && (
         <ProgramPage
           program={programs.find((pr) => pr.id === view.programId)}
           professions={professions}
+          profileName={view.profileName}
           onBack={() => setView({ name: "directions" })}
           onOpenProfession={(professionId) =>
             setView({ name: "profession", professionId })
+          }
+          onSelectProfile={(profileName) =>
+            setView({ name: "program", programId: view.programId, profileName })
           }
         />
       )}

@@ -46,8 +46,8 @@ pwaproject/
 │   │   ├── TestPage.tsx        # прохождение теста, состояние, подсчёт
 │   │   ├── GalleryPage.tsx     # галерея профессий: поиск + фильтр по программам
 │   │   ├── ProfessionPage.tsx  # карточка профессии (описание, обязанности, навыки)
-│   │   ├── DirectionsPage.tsx  # направления подготовки (4 программы)
-│   │   ├── ProgramPage.tsx     # карточка программы + связанные профессии
+│   │   ├── DirectionsPage.tsx  # направления подготовки (3 программы + 3 профиля магистратуры)
+│   │   ├── ProgramPage.tsx     # карточка программы/профиля + связанные профессии
 │   │   └── ClubPage.tsx        # клуб молодого предпринимателя
 │   ├── lib/
 │   │   ├── scoring.ts          # scoreTest, getResultExtremes (чистые функции)
@@ -76,7 +76,7 @@ type View =
   | { name: "gallery" }
   | { name: "profession"; professionId: string }
   | { name: "directions" }
-  | { name: "program"; programId: string };
+  | { name: "program"; programId: string; profileName?: string };
 ```
 
 ```mermaid

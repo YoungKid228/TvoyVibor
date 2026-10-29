@@ -5,6 +5,7 @@ import AsciiBackground from "../src/components/AsciiBackground";
 import ProfessionCarousel from "../src/components/ProfessionCarousel";
 import type { Profession, Program } from "../src/types/test";
 import ProgramPage from "../src/pages/ProgramPage";
+import DirectionsPage from "../src/pages/DirectionsPage";
 import programsData from "../src/data/programs.json";
 
 afterEach(cleanup);
@@ -119,8 +120,8 @@ describe("ProgramPage", () => {
     ],
   };
 
-  it("показывает варианты поступления с местами и сроком", () => {
-    const { getByTestId, getAllByText } = render(
+  it("показывает варианты поступления со сроком и без мест", () => {
+    const { getByTestId, getAllByText, queryAllByText } = render(
       <ProgramPage
         program={program}
         professions={[]}
@@ -130,8 +131,41 @@ describe("ProgramPage", () => {
     );
     expect(getByTestId("admission-options")).toBeTruthy();
     expect(getAllByText(/на базе 11 классов/i).length).toBeGreaterThan(0);
-    expect(getAllByText(/платных мест: 30/).length).toBeGreaterThan(0);
     expect(getAllByText(/1 год 10 месяцев/).length).toBeGreaterThan(0);
+    // места, стоимость и проходные баллы в приложении не показываются
+    expect(queryAllByText(/платных мест/i).length).toBe(0);
+    expect(queryAllByText(/бюджетных мест/i).length).toBe(0);
+    expect(queryAllByText(/стоимость/i).length).toBe(0);
+  });
+});
+
+describe("DirectionsPage", () => {
+  it("разделяет магистратуру на блоки по профилям и не показывает места, цену и баллы", () => {
+    const programs = programsData as Program[];
+    const onOpenProgram = vi.fn();
+    const { getAllByTestId, queryAllByText, getByText } = render(
+      <DirectionsPage
+        programs={programs}
+        professions={[]}
+        onOpenProgram={onOpenProgram}
+      />,
+    );
+
+    const cards = getAllByTestId("program-card");
+    // 3 программы с одним профилем + 3 профиля магистратуры
+    expect(cards.length).toBe(6);
+
+    expect(queryAllByText(/бюджетных мест/i).length).toBe(0);
+    expect(queryAllByText(/платных мест/i).length).toBe(0);
+    expect(queryAllByText(/стоимость/i).length).toBe(0);
+    expect(queryAllByText(/проходной балл/i).length).toBe(0);
+
+    // клик по блоку магистратуры открывает нужный профиль
+    fireEvent.click(getByText("Электронная коммерция"));
+    expect(onOpenProgram).toHaveBeenCalledWith(
+      "masters",
+      "Электронная коммерция",
+    );
   });
 });
 

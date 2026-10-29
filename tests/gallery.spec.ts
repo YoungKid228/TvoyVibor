@@ -46,7 +46,7 @@ test("gallery: search, program filter and profession card", async ({ page }) => 
   await expect(page.getByTestId("pending-section")).toHaveCount(0);
 });
 
-test("directions: four programs with placeholders and related professions", async ({
+test("directions: programs, master profiles and related professions", async ({
   page,
 }) => {
   await page.goto("/");
@@ -57,13 +57,19 @@ test("directions: four programs with placeholders and related professions", asyn
     .getByRole("button", { name: "Направления" })
     .click();
   const programCards = page.getByTestId("program-card");
-  await expect(programCards).toHaveCount(4);
+  // 3 программы с одним профилем + 3 профиля магистратуры
+  await expect(programCards).toHaveCount(6);
+
+  // в карточках направлений нет мест, стоимости и проходных баллов
+  await expect(page.getByText(/бюджетных мест/i)).toHaveCount(0);
+  await expect(page.getByText(/платных мест/i)).toHaveCount(0);
+  await expect(page.getByText(/стоимость/i)).toHaveCount(0);
+  await expect(page.getByText(/проходной балл/i)).toHaveCount(0);
 
   // карточка направления (Банковское дело): факты со страницы ПГУ + данные из ООП и учебного плана
   await programCards.first().click();
   await expect(page.getByText("Очная: 1 год 10 месяцев")).toBeVisible();
   await expect(page.getByText("Заочная: 3 года 10 месяцев")).toBeVisible();
-  await expect(page.getByText("Платных мест: 30")).toBeVisible();
   await expect(page.getByText("О программе")).toBeVisible();
   await expect(page.getByText("Что я буду изучать?")).toBeVisible();
   await expect(page.getByText("Карьерные перспективы")).toBeVisible();
@@ -82,10 +88,13 @@ test("directions: four programs with placeholders and related professions", asyn
     .getByRole("button", { name: "Направления" })
     .click();
 
-  // магистратура: профили с контентом со страницы ПГУ, профиль ЭБиУР — из ООП (заочная форма)
-  await page.getByTestId("program-card").filter({ hasText: "38.04.01" }).click();
-  await expect(page.getByText("Профили программы")).toBeVisible();
-  await expect(page.getByTestId("profile-name")).toHaveCount(3);
+  // магистратура: каждый профиль — отдельный блок в списке направлений
+  await page
+    .getByTestId("program-card")
+    .filter({ hasText: "Электронная коммерция" })
+    .click();
+  await expect(page.getByText("Профили магистратуры")).toBeVisible();
+  await expect(page.getByTestId("profile-name")).toHaveCount(1);
   await expect(
     page.getByTestId("profile-name").filter({ hasText: "Электронная коммерция" }),
   ).toBeVisible();
@@ -96,7 +105,15 @@ test("directions: four programs with placeholders and related professions", asyn
   ).toBeVisible();
   // ЭБиУР — только заочно, остальные профили — очно
   await expect(page.getByText("Форма обучения: заочная", { exact: true })).toHaveCount(1);
-  await expect(page.getByText("Форма обучения: очная", { exact: true })).toHaveCount(2);
+
+  // переключение профиля магистратуры
+  await page
+    .getByTestId("profile-switch")
+    .filter({ hasText: "Аналитическая экономика" })
+    .click();
+  await expect(
+    page.getByTestId("profile-name").filter({ hasText: "Аналитическая экономика" }),
+  ).toBeVisible();
 
   // официальный источник программы
   await expect(

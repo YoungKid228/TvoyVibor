@@ -6,9 +6,10 @@ import SpecialText from "../components/SpecialText";
 type Props = {
   programs: Program[];
   professions: Profession[];
-  onOpenProgram: (programId: string) => void;
+  onOpenProgram: (programId: string, profileName?: string) => void;
 };
 
+/** Срок обучения и формы — без стоимости, мест и проходных баллов */
 function formatProgramLine(program: Program): string | null {
   const parts: string[] = [];
   if (program.durationByForm) {
@@ -21,15 +22,6 @@ function formatProgramLine(program: Program): string | null {
     parts.push(program.duration);
     if (program.forms.length > 0) parts.push(program.forms.join(" / "));
   }
-  if (program.costPerYearByForm) {
-    parts.push(
-      Object.entries(program.costPerYearByForm)
-        .map(([form, cost]) => `${cost} (${form.toLowerCase()})`)
-        .join(" · "),
-    );
-  } else if (program.costPerYear) {
-    parts.push(program.costPerYear);
-  }
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
@@ -40,35 +32,6 @@ function isProfileRedundant(program: Program, profile: string): boolean {
   return normalize(program.title) === normalize(profile);
 }
 
-/**
- * Краткая сводка по вариантам поступления для карточки направления:
- * «Очная: 20 бюджетных, 3 платных · Заочная: 15 платных».
- */
-function formatAdmissionSummary(program: Program): string | null {
-  const options = program.admissionOptions;
-  if (!options || options.length === 0) return null;
-  const byForm = new Map<string, string[]>();
-  for (const option of options) {
-    const places: string[] = [];
-    if (option.budgetPlaces !== null) places.push(`${option.budgetPlaces} бюджетных`);
-    if (option.paidPlaces !== null) places.push(`${option.paidPlaces} платных`);
-    const key = option.form;
-    const merged = byForm.get(key) ?? [];
-    // Одна и та же форма может идти по двум базам — места перечисляем один раз
-    const unique = places.filter((p) => !merged.includes(p));
-    byForm.set(key, [...merged, ...unique]);
-  }
-  const parts: string[] = [];
-  for (const [form, places] of byForm) {
-    parts.push(
-      places.length > 0
-        ? `${form}: ${places.join(", ")}`
-        : `${form}: срок уточняется`,
-    );
-  }
-  return parts.length > 0 ? `Мест на 2026 год — ${parts.join(" · ")}` : null;
-}
-
 function formatProfilesLine(program: Program): string | null {
   if (program.profiles.length === 0) return null;
   if (program.profiles.length === 1) {
@@ -77,6 +40,15 @@ function formatProfilesLine(program: Program): string | null {
       : `Профиль: ${program.profiles[0]}`;
   }
   return `Профили: ${program.profiles.join(" · ")}`;
+}
+
+/** Первое предложение описания профиля — короткое вступление в карточке */
+function profileLead(program: Program, profileName: string): string | null {
+  const profile = program.profileDetails.find((p) => p.name === profileName);
+  const text = profile?.description?.[0];
+  if (!text) return null;
+  const [first] = text.split(/(?<=\.)\s/);
+  return first.length > 160 ? `${first.slice(0, 157)}…` : first;
 }
 
 export default function DirectionsPage({
@@ -102,38 +74,84 @@ export default function DirectionsPage({
       </p>
 
       <div className="flex flex-col gap-6">
-        {programs.map((program) => (
-          <button
-            key={program.id}
-            type="button"
-            data-testid="program-card"
-            onClick={() => onOpenProgram(program.id)}
-            className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-          >
-            <PixelCard>
-              <span className="block text-xs text-orange-700">
-                {program.code} · {program.level}
-              </span>
-              <span className="mt-1 block font-medium">{program.title}</span>
-              {formatProfilesLine(program) && (
-                <span className="mt-1 block text-sm text-stone-500">
-                  {formatProfilesLine(program)}
+        {programs.map((program) => {
+          const isMultiProfile = program.profiles.length > 1;
+
+          /* Программа с несколькими профилями (магистратура) —
+             каждый профиль получает собственный блок */
+          if (isMultiProfile) {
+            return (
+              <div key={program.id} className="flex flex-col gap-4">
+                <p className="text-xs text-orange-700">
+                  {program.code} · {program.level}
+                </p>
+                {program.profiles.map((profileName) => {
+                  const lead = profileLead(program, profileName);
+                  const forms = program.profileDetails.find(
+                    (p) => p.name === profileName,
+                  )?.forms;
+                  return (
+                    <button
+                      key={`${program.id}-${profileName}`}
+                      type="button"
+                      data-testid="program-card"
+                      onClick={() => onOpenProgram(program.id, profileName)}
+                      className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                    >
+                      <PixelCard>
+                        <span className="block text-xs text-orange-700">
+                          {program.code} · {program.level}
+                        </span>
+                        <span className="mt-1 block font-medium">{profileName}</span>
+                        <span className="mt-1 block text-sm text-stone-500">
+                          {program.title}
+                          {forms && forms.length > 0
+                            ? ` · ${forms.join(", ").toLowerCase()} форма`
+                            : ""}
+                        </span>
+                        {lead && (
+                          <span className="mt-1 block text-sm text-stone-600">
+                            {lead}
+                          </span>
+                        )}
+                      </PixelCard>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          }
+
+          return (
+            <button
+              key={program.id}
+              type="button"
+              data-testid="program-card"
+              onClick={() => onOpenProgram(program.id)}
+              className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+            >
+              <PixelCard>
+                <span className="block text-xs text-orange-700">
+                  {program.code} · {program.level}
                 </span>
-              )}
-              <span className="mt-1 block text-sm text-stone-500">
-                {formatProgramLine(program)}
-              </span>
-              {formatAdmissionSummary(program) && (
+                <span className="mt-1 block font-medium">{program.title}</span>
+                {formatProfilesLine(program) && (
+                  <span className="mt-1 block text-sm text-stone-500">
+                    {formatProfilesLine(program)}
+                  </span>
+                )}
+                {formatProgramLine(program) && (
+                  <span className="mt-1 block text-sm text-stone-500">
+                    {formatProgramLine(program)}
+                  </span>
+                )}
                 <span className="mt-1 block text-sm text-stone-500">
-                  {formatAdmissionSummary(program)}
+                  Профессий в галерее: {countByProgram.get(program.id) ?? 0}
                 </span>
-              )}
-              <span className="mt-1 block text-sm text-stone-500">
-                Профессий в галерее: {countByProgram.get(program.id) ?? 0}
-              </span>
-            </PixelCard>
-          </button>
-        ))}
+              </PixelCard>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

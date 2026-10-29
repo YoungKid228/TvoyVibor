@@ -10,8 +10,10 @@ import type {
 type Props = {
   program: Program | undefined;
   professions: Profession[];
+  profileName?: string;
   onBack: () => void;
   onOpenProfession: (professionId: string) => void;
+  onSelectProfile?: (profileName: string) => void;
 };
 
 import PixelButton from "../components/PixelButton";
@@ -89,18 +91,9 @@ function Careers({ careers }: { careers: ProgramCareer[] }) {
   );
 }
 
-function Places({ profile }: { profile: ProgramProfile }) {
-  const parts: string[] = [];
-  if (profile.budgetPlaces !== null) parts.push(`Бюджетных мест: ${profile.budgetPlaces}`);
-  if (profile.paidPlaces !== null) parts.push(`Платных мест: ${profile.paidPlaces}`);
-  if (profile.passScore !== null) parts.push(`Проходной балл: ${profile.passScore}`);
-  if (parts.length === 0) return null;
-  return <p className="text-sm text-stone-600">{parts.join(" · ")}</p>;
-}
-
 /**
- * Варианты поступления: форма, база, срок, места и стоимость.
- * Таблица на узких экранах превращается в список карточек.
+ * Варианты поступления: форма, база и срок обучения.
+ * Количество мест, стоимость и проходные баллы в приложении не показываются.
  */
 function AdmissionOptions({
   program,
@@ -112,13 +105,6 @@ function AdmissionOptions({
   return (
     <ul className="flex flex-col gap-3" data-testid="admission-options">
       {options.map((option, i) => {
-        const places: string[] = [];
-        if (option.budgetPlaces !== null) {
-          places.push(`бюджетных мест: ${option.budgetPlaces}`);
-        }
-        if (option.paidPlaces !== null) {
-          places.push(`платных мест: ${option.paidPlaces}`);
-        }
         return (
           <li
             key={`${option.form}-${option.base ?? i}`}
@@ -130,8 +116,6 @@ function AdmissionOptions({
             </p>
             <ul className="mt-1 flex flex-col gap-0.5 text-sm text-stone-600">
               {option.duration && <li>Срок обучения: {option.duration}</li>}
-              {places.length > 0 && <li>На 2026 год — {places.join(", ")}</li>}
-              {option.costPerYear && <li>Стоимость: {option.costPerYear}</li>}
               {option.profiles && option.profiles.length > 0 && (
                 <li>
                   Направления:{" "}
@@ -174,29 +158,22 @@ function ProgramFacts({
     duration:
       program.durationByForm?.[form] ??
       (program.forms.length === 1 ? program.duration : null),
-    cost: program.costPerYearByForm?.[form] ?? null,
   }));
-  const hasAnyCost = rows.some((r) => r.cost);
   return (
     <ul className="mb-4 mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
       {rows.length > 1 ? (
         rows.map((r) => (
           <li key={r.form}>
             {r.form}: {r.duration ?? "срок уточняется"}
-            {r.cost && ` · ${r.cost}`}
           </li>
         ))
       ) : (
         <>
           {rows[0]?.duration && <li>Срок обучения: {rows[0].duration}</li>}
           {rows[0]?.form && <li>Форма: {rows[0].form}</li>}
-          {hasAnyCost && <li>Стоимость: {rows[0].cost}</li>}
         </>
       )}
       {program.language && <li>Язык обучения: {program.language}</li>}
-      {!hasAnyCost && program.costPerYear && (
-        <li>Стоимость: {program.costPerYear}</li>
-      )}
       {program.baseEducation && <li>{program.baseEducation}</li>}
     </ul>
   );
@@ -219,9 +196,6 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
       <h3 className="text-base font-semibold text-stone-800" data-testid="profile-name">
         {profile.name}
       </h3>
-      <div className="mt-2">
-        <Places profile={profile} />
-      </div>
       {profile.note && (
         <p className="mt-1 text-sm text-stone-500">{profile.note}</p>
       )}
@@ -316,8 +290,10 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
 export default function ProgramPage({
   program,
   professions,
+  profileName,
   onBack,
   onOpenProfession,
+  onSelectProfile,
 }: Props) {
   if (!program) {
     return (
@@ -336,6 +312,12 @@ export default function ProgramPage({
 
   const related = professions.filter((p) => p.programId === program.id);
   const isMultiProfile = program.profiles.length > 1;
+  const selectedProfile =
+    profileName !== undefined
+      ? program.profileDetails.find((p) => p.name === profileName)
+      : undefined;
+  const shownProfiles =
+    isMultiProfile && selectedProfile ? [selectedProfile] : program.profileDetails;
 
   return (
     <section aria-label={`${program.title} (${program.level})`}>
@@ -357,6 +339,35 @@ export default function ProgramPage({
           !isProfileRedundant(program, program.profiles[0]) &&
           ` — профиль: ${program.profiles[0]}`}
       </p>
+      {isMultiProfile && (
+        <div className="mt-3 flex flex-col gap-2">
+          <p className="text-sm font-medium text-stone-700">
+            Профили магистратуры
+          </p>
+          <ul className="flex flex-col gap-1">
+            {program.profileDetails.map((p) => {
+              const active = p.name === selectedProfile?.name;
+              return (
+                <li key={p.name}>
+                  <button
+                    type="button"
+                    data-testid="profile-switch"
+                    aria-current={active ? "true" : undefined}
+                    onClick={() => onSelectProfile?.(p.name)}
+                    className={`min-h-11 w-full rounded-lg px-2 text-left text-sm font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
+                      active
+                        ? "bg-orange-50 text-orange-900"
+                        : "text-orange-700 decoration-orange-300 hover:decoration-orange-500"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {program.faculty && (
         <p className="text-sm text-stone-500">
           {program.faculty}
@@ -369,10 +380,6 @@ export default function ProgramPage({
         {!isMultiProfile &&
           program.profileDetails.map((profile) => (
             <Card key={profile.name} title="Приём">
-              <Places profile={profile} />
-              {profile.note && (
-                <p className="mt-1 text-sm text-stone-500">{profile.note}</p>
-              )}
               {profile.exams && (
                 <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
                   {profile.exams.map((exam) => (
@@ -484,8 +491,10 @@ export default function ProgramPage({
 
         {isMultiProfile && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-medium text-stone-700">Профили программы</h3>
-            {program.profileDetails.map((profile) => (
+            <h3 className="text-sm font-medium text-stone-700">
+              {selectedProfile ? "О выбранном профиле" : "Профили программы"}
+            </h3>
+            {shownProfiles.map((profile) => (
               <ProfileSection key={profile.name} profile={profile} />
             ))}
           </div>
