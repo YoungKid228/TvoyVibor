@@ -9,16 +9,16 @@ test("gallery: search, program filter and profession card", async ({ page }) => 
     .getByRole("button", { name: "Галерея профессий" })
     .click();
 
-  // все 20 карточек
+  // все 10 карточек
   const cards = page.getByTestId("profession-card");
-  await expect(cards).toHaveCount(20);
+  await expect(cards).toHaveCount(10);
 
   // фильтр по программе
   await page
     .getByRole("group", { name: "Фильтр по программе подготовки" })
     .getByRole("button", { name: /Банковское дело/ })
     .click();
-  await expect(cards).toHaveCount(3);
+  await expect(cards).toHaveCount(1);
 
   // поиск по названию (сбросив фильтр)
   await page
@@ -26,7 +26,7 @@ test("gallery: search, program filter and profession card", async ({ page }) => 
     .getByRole("button", { name: "Все" })
     .click();
   await page.getByLabel("Поиск профессии по названию").fill("бухгалтер");
-  await expect(cards).toHaveCount(3); // бухгалтер, по расчёту зарплаты, главный
+  await expect(cards).toHaveCount(1); // бухгалтер
 
   // пустой результат
   await page.getByLabel("Поиск профессии по названию").fill("космонавт");
@@ -57,8 +57,8 @@ test("directions: programs, master profiles and related professions", async ({
     .getByRole("button", { name: "Направления" })
     .click();
   const programCards = page.getByTestId("program-card");
-  // 3 программы с одним профилем + 3 профиля магистратуры
-  await expect(programCards).toHaveCount(6);
+  // 3 программы с одним профилем + 1 блок магистратуры с переключением
+  await expect(programCards).toHaveCount(4);
 
   // в карточках направлений нет мест, стоимости и проходных баллов
   await expect(page.getByText(/бюджетных мест/i)).toHaveCount(0);
@@ -88,10 +88,17 @@ test("directions: programs, master profiles and related professions", async ({
     .getByRole("button", { name: "Направления" })
     .click();
 
-  // магистратура: каждый профиль — отдельный блок в списке направлений
+  // магистратура: один блок с переключением профилей
   await page
     .getByTestId("program-card")
     .filter({ hasText: "Электронная коммерция" })
+    .getByTestId("directions-profile-switch")
+    .filter({ hasText: "Электронная коммерция" })
+    .click();
+  await page
+    .getByTestId("program-card")
+    .filter({ hasText: "Электронная коммерция" })
+    .getByTestId("directions-open-program")
     .click();
   await expect(page.getByText("Профили магистратуры")).toBeVisible();
   await expect(page.getByTestId("profile-name")).toHaveCount(1);

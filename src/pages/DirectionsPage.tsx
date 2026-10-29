@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Program, Profession } from "../types/test";
 import PixelCard from "../components/PixelCard";
 import SpecialText from "../components/SpecialText";
@@ -40,7 +40,7 @@ function formatProfilesLine(program: Program): string | null {
   if (program.profiles.length === 1) {
     return isProfileRedundant(program, program.profiles[0])
       ? null
-      : `Профиль: ${program.profiles[0]}`;
+      : `Направленность: ${program.profiles[0]}`;
   }
   return `Профили: ${program.profiles.join(" · ")}`;
 }
@@ -68,6 +68,10 @@ export default function DirectionsPage({
   professions,
   onOpenProgram,
 }: Props) {
+  const [selectedProfiles, setSelectedProfiles] = useState<
+    Record<string, string>
+  >({});
+
   const countByProgram = useMemo(() => {
     const counts = new Map<string, number>();
     for (const p of professions) {
@@ -89,44 +93,94 @@ export default function DirectionsPage({
         {programs.map((program) => {
           const isMultiProfile = program.profiles.length > 1;
 
-          /* Программа с несколькими профилями (магистратура) —
-             каждый профиль получает собственный блок */
+          /* Магистратура — один блок с переключением профилей внутри */
           if (isMultiProfile) {
+            const selected =
+              selectedProfiles[program.id] ?? program.profiles[0];
+            const lead = profileLead(program, selected);
+            const forms = program.profileDetails.find(
+              (p) => p.name === selected,
+            )?.forms;
+
             return (
-              <div key={program.id} className="flex flex-col gap-4">
-                {program.profiles.map((profileName) => {
-                  const lead = profileLead(program, profileName);
-                  const forms = program.profileDetails.find(
-                    (p) => p.name === profileName,
-                  )?.forms;
-                  return (
-                    <button
-                      key={`${program.id}-${profileName}`}
-                      type="button"
-                      data-testid="program-card"
-                      onClick={() => onOpenProgram(program.id, profileName)}
-                      className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-                    >
-                      <PixelCard>
-                        <span className="block text-xs text-orange-700">
-                          {program.code} · {program.level}
-                        </span>
-                        <span className="mt-1 block font-medium">{profileName}</span>
-                        <span className="mt-1 block text-sm text-stone-500">
-                          {program.title}
-                          {forms && forms.length > 0
-                            ? ` · ${forms.join(", ").toLowerCase()} форма`
-                            : ""}
-                        </span>
-                        {lead && (
-                          <span className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
-                            {lead}
+              <div
+                key={program.id}
+                data-testid="program-card"
+                className="rounded-lg focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-orange-500"
+              >
+                <PixelCard>
+                  <span className="block text-xs text-orange-700">
+                    {program.code} · {program.level}
+                  </span>
+                  <span className="mt-1 block font-medium">{program.title}</span>
+
+                  <div
+                    role="group"
+                    aria-label="Профили магистратуры"
+                    className="mt-2 flex flex-col gap-2"
+                  >
+                    {program.profiles.map((profileName) => {
+                      const active = profileName === selected;
+                      const profileForms = program.profileDetails.find(
+                        (p) => p.name === profileName,
+                      )?.forms;
+                      return (
+                        <button
+                          key={profileName}
+                          type="button"
+                          data-testid="directions-profile-switch"
+                          aria-current={active ? "true" : undefined}
+                          onClick={() =>
+                            setSelectedProfiles((prev) => ({
+                              ...prev,
+                              [program.id]: profileName,
+                            }))
+                          }
+                          className={`block w-full rounded-lg border-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
+                            active
+                              ? "border-orange-500 bg-orange-100"
+                              : "border-stone-300 bg-white hover:border-orange-300 hover:bg-orange-50"
+                          }`}
+                        >
+                          <span
+                            className={`block text-sm font-medium ${
+                              active ? "text-orange-900" : "text-stone-800"
+                            }`}
+                          >
+                            {profileName}
                           </span>
-                        )}
-                      </PixelCard>
-                    </button>
-                  );
-                })}
+                          {profileForms && profileForms.length > 0 && (
+                            <span className="mt-0.5 block text-xs text-stone-500">
+                              Форма обучения:{" "}
+                              {profileForms.join(", ").toLowerCase()}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {forms && forms.length > 0 && (
+                    <span className="mt-2 block text-sm text-stone-500">
+                      {program.title}
+                      {` · ${forms.join(", ").toLowerCase()} форма`}
+                    </span>
+                  )}
+                  {lead && (
+                    <span className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
+                      {lead}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    data-testid="directions-open-program"
+                    onClick={() => onOpenProgram(program.id, selected)}
+                    className="mt-3 block w-full rounded-lg border-2 border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-800 transition-colors hover:border-orange-300 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                  >
+                    Открыть программу
+                  </button>
+                </PixelCard>
               </div>
             );
           }

@@ -155,10 +155,10 @@ describe("ProgramPage", () => {
 });
 
 describe("DirectionsPage", () => {
-  it("разделяет магистратуру на блоки по профилям и не показывает места, цену и баллы", () => {
+  it("объединяет магистратуру в один блок с переключением профилей и не показывает места, цену и баллы", () => {
     const programs = programsData as Program[];
     const onOpenProgram = vi.fn();
-    const { getAllByTestId, queryAllByText, getByText } = render(
+    const { getAllByTestId, getByTestId, queryAllByText, getByText } = render(
       <DirectionsPage
         programs={programs}
         professions={[]}
@@ -167,16 +167,17 @@ describe("DirectionsPage", () => {
     );
 
     const cards = getAllByTestId("program-card");
-    // 3 программы с одним профилем + 3 профиля магистратуры
-    expect(cards.length).toBe(6);
+    // 3 программы с одним профилем + 1 блок магистратуры с переключением
+    expect(cards.length).toBe(4);
 
     expect(queryAllByText(/бюджетных мест/i).length).toBe(0);
     expect(queryAllByText(/платных мест/i).length).toBe(0);
     expect(queryAllByText(/стоимость/i).length).toBe(0);
     expect(queryAllByText(/проходной балл/i).length).toBe(0);
 
-    // клик по блоку магистратуры открывает нужный профиль
+    // переключение профиля магистратуры внутри блока
     fireEvent.click(getByText("Электронная коммерция"));
+    fireEvent.click(getByTestId("directions-open-program"));
     expect(onOpenProgram).toHaveBeenCalledWith(
       "masters",
       "Электронная коммерция",

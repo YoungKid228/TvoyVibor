@@ -103,5 +103,5 @@ test("manifest is served", async ({ request }) => {
   expect(res.status()).toBe(200);
   const manifest = await res.json();
   expect(manifest.display).toBe("standalone");
-  expect(manifest.name).toContain("ПГУ");
+  expect(manifest.name).toContain("Твой выбор");
 });
