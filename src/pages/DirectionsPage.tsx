@@ -122,7 +122,7 @@ export default function DirectionsPage({
                             : ""}
                         </span>
                         {lead && (
-                          <span className="mt-1 block line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
+                          <span className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
                             {lead}
                           </span>
                         )}
