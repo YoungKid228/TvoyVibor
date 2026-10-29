@@ -104,6 +104,7 @@ test("directions: programs, master profiles and related professions", async ({
     page.getByText("Заочная: 2 года 6 месяцев", { exact: true }),
   ).toBeVisible();
   // ЭБиУР — только заочно, остальные профили — очно
+  // (в переключателе профилей и в карточке выбранного профиля)
   await expect(page.getByText("Форма обучения: заочная", { exact: true })).toHaveCount(1);
 
   // переключение профиля магистратуры

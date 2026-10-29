@@ -94,9 +94,6 @@ export default function DirectionsPage({
           if (isMultiProfile) {
             return (
               <div key={program.id} className="flex flex-col gap-4">
-                <p className="text-xs text-orange-700">
-                  {program.code} · {program.level}
-                </p>
                 {program.profiles.map((profileName) => {
                   const lead = profileLead(program, profileName);
                   const forms = program.profileDetails.find(

@@ -340,32 +340,50 @@ export default function ProgramPage({
           ` — профиль: ${program.profiles[0]}`}
       </p>
       {isMultiProfile && (
-        <div className="mt-3 flex flex-col gap-2">
-          <p className="text-sm font-medium text-stone-700">
-            Профили магистратуры
-          </p>
-          <ul className="flex flex-col gap-1">
-            {program.profileDetails.map((p) => {
-              const active = p.name === selectedProfile?.name;
-              return (
-                <li key={p.name}>
-                  <button
-                    type="button"
-                    data-testid="profile-switch"
-                    aria-current={active ? "true" : undefined}
-                    onClick={() => onSelectProfile?.(p.name)}
-                    className={`min-h-11 w-full rounded-lg px-2 text-left text-sm font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
-                      active
-                        ? "bg-orange-50 text-orange-900"
-                        : "text-orange-700 decoration-orange-300 hover:decoration-orange-500"
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="mt-4">
+          <PixelCard>
+            <h3 className="mb-2 text-base font-medium text-stone-700">
+              Профили магистратуры
+            </h3>
+            <ul className="flex flex-col gap-2">
+              {program.profileDetails.map((p) => {
+                const active = p.name === selectedProfile?.name;
+                const forms = p.forms;
+                return (
+                  <li key={p.name}>
+                    <button
+                      type="button"
+                      data-testid="profile-switch"
+                      aria-current={active ? "true" : undefined}
+                      onClick={() => onSelectProfile?.(p.name)}
+                      className={`block w-full rounded-lg border-2 px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
+                        active
+                          ? "border-orange-500 bg-orange-100"
+                          : "border-stone-300 bg-white hover:border-orange-300 hover:bg-orange-50"
+                      }`}
+                    >
+                      <span
+                        className={`block text-sm font-medium ${
+                          active ? "text-orange-900" : "text-stone-800"
+                        }`}
+                      >
+                        {p.name}
+                      </span>
+                      {forms && forms.length > 0 && (
+                        <span className="mt-0.5 block text-xs text-stone-500">
+                          Форма обучения: {forms.join(", ").toLowerCase()}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 text-xs text-stone-500">
+              Выберите профиль — ниже появится его описание, дисциплины и
+              компетенции.
+            </p>
+          </PixelCard>
         </div>
       )}
       {program.faculty && (
