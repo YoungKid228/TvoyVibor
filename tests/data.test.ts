@@ -27,18 +27,18 @@ const professionIds = new Set(professions.map((p) => p.id));
 const directionIds = new Set(directions.map((d) => d.id));
 const programIds = new Set(programs.map((p) => p.id));
 
-/** Профессии из исходной методики (до расширения до 20) */
-const legacyProfessionIds = [
-  "accountant",
+/** Опубликованные профессии направления */
+const publishedProfessionIds = [
+  "insurance_agent",
   "tax_consultant",
   "business_analyst",
   "credit_specialist",
   "financial_analyst",
   "procurement_specialist",
   "economist",
-  "economic_security",
-  "insurance_agent",
+  "accountant",
   "budgeting_specialist",
+  "economic_security",
 ];
 
 function uniqueIds(ids: string[]): boolean {
@@ -46,15 +46,16 @@ function uniqueIds(ids: string[]): boolean {
 }
 
 describe("data integrity", () => {
-  it("publishes exactly 20 professions with unique ids", () => {
-    expect(professions).toHaveLength(20);
+  it("publishes exactly 10 professions with unique ids", () => {
+    expect(professions).toHaveLength(10);
     expect(uniqueIds(professions.map((p) => p.id))).toBe(true);
   });
 
-  it("keeps all legacy professions", () => {
-    for (const id of legacyProfessionIds) {
+  it("keeps all published professions", () => {
+    for (const id of publishedProfessionIds) {
       expect(professionIds.has(id), id).toBe(true);
     }
+    expect([...professionIds].sort()).toEqual([...publishedProfessionIds].sort());
   });
 
   it("distributes professions across the four published programs", () => {

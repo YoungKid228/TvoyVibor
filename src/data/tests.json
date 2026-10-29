@@ -5,25 +5,15 @@
       "text": "Мне нравится работать с цифрами, таблицами и расчётами.",
       "weights": {
         "accountant": 3,
-        "payroll_accountant": 3,
-        "chief_accountant": 3,
         "tax_consultant": 2,
-        "tax_inspector": 2,
         "credit_specialist": 1,
-        "bank_operator": 2,
-        "mortgage_specialist": 1,
-        "credit_analyst": 2,
         "financial_analyst": 2,
-        "financial_manager": 1,
         "economist": 2,
-        "macroeconomic_analyst": 2,
         "budgeting_specialist": 2,
         "economic_security": 2,
-        "risk_manager": 1,
         "procurement_specialist": 1,
         "insurance_agent": 1,
-        "business_analyst": 1,
-        "ecommerce_specialist": 1
+        "business_analyst": 1
       }
     },
     {
@@ -31,25 +21,15 @@
       "text": "Если в расчётах не сходится копейка, мне важно найти ошибку.",
       "weights": {
         "accountant": 3,
-        "payroll_accountant": 3,
-        "chief_accountant": 3,
         "tax_consultant": 2,
-        "tax_inspector": 2,
         "credit_specialist": 1,
-        "bank_operator": 2,
-        "mortgage_specialist": 1,
-        "credit_analyst": 2,
         "financial_analyst": 2,
-        "financial_manager": 1,
         "economist": 2,
-        "macroeconomic_analyst": 2,
         "budgeting_specialist": 2,
         "economic_security": 2,
-        "risk_manager": 1,
         "procurement_specialist": 1,
         "insurance_agent": 1,
-        "business_analyst": 1,
-        "ecommerce_specialist": 1
+        "business_analyst": 1
       }
     },
     {
@@ -57,21 +37,13 @@
       "text": "Мне комфортно работать по чётким правилам и инструкциям.",
       "weights": {
         "accountant": 2,
-        "payroll_accountant": 2,
-        "chief_accountant": 3,
         "tax_consultant": 3,
-        "tax_inspector": 3,
         "credit_specialist": 2,
-        "bank_operator": 2,
-        "mortgage_specialist": 2,
-        "credit_analyst": 1,
         "budgeting_specialist": 1,
         "economic_security": 2,
-        "risk_manager": 1,
         "procurement_specialist": 2,
         "insurance_agent": 1,
-        "business_analyst": -1,
-        "ecommerce_specialist": -1
+        "business_analyst": -1
       }
     },
     {
@@ -79,21 +51,13 @@
       "text": "Мне интересно разбираться в законах и официальных документах.",
       "weights": {
         "accountant": 2,
-        "payroll_accountant": 2,
-        "chief_accountant": 3,
         "tax_consultant": 3,
-        "tax_inspector": 3,
         "credit_specialist": 2,
-        "bank_operator": 2,
-        "mortgage_specialist": 2,
-        "credit_analyst": 1,
         "budgeting_specialist": 1,
         "economic_security": 2,
-        "risk_manager": 1,
         "procurement_specialist": 2,
         "insurance_agent": 1,
-        "business_analyst": -1,
-        "ecommerce_specialist": -1
+        "business_analyst": -1
       }
     },
     {
@@ -101,21 +65,13 @@
       "text": "Мне нравится узнавать, почему возникла проблема, а не только исправлять её последствия.",
       "weights": {
         "accountant": -1,
-        "payroll_accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": 1,
-        "credit_analyst": 3,
         "financial_analyst": 3,
-        "financial_manager": 2,
         "economist": 3,
-        "macroeconomic_analyst": 3,
         "budgeting_specialist": 1,
         "economic_security": 2,
-        "risk_manager": 3,
         "insurance_agent": -1,
-        "business_analyst": 3,
-        "ecommerce_specialist": 2
+        "business_analyst": 3
       }
     },
     {
@@ -123,23 +79,15 @@
       "text": "Я умею объяснять сложные вещи простыми словами.",
       "weights": {
         "accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": -1,
         "credit_specialist": 3,
-        "bank_operator": 3,
-        "mortgage_specialist": 3,
-        "credit_analyst": -1,
         "financial_analyst": -1,
         "economist": -1,
-        "macroeconomic_analyst": -1,
         "budgeting_specialist": -1,
         "economic_security": -1,
-        "risk_manager": -1,
         "procurement_specialist": 1,
         "insurance_agent": 3,
-        "business_analyst": 2,
-        "ecommerce_specialist": 1
+        "business_analyst": 2
       }
     },
     {
@@ -147,23 +95,15 @@
       "text": "Мне интересно общаться с новыми людьми и узнавать их ситуации.",
       "weights": {
         "accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": -1,
         "credit_specialist": 3,
-        "bank_operator": 3,
-        "mortgage_specialist": 3,
-        "credit_analyst": -1,
         "financial_analyst": -1,
         "economist": -1,
-        "macroeconomic_analyst": -1,
         "budgeting_specialist": -1,
         "economic_security": -1,
-        "risk_manager": -1,
         "procurement_specialist": 1,
         "insurance_agent": 3,
-        "business_analyst": 2,
-        "ecommerce_specialist": 1
+        "business_analyst": 2
       }
     },
     {
@@ -171,23 +111,15 @@
       "text": "Я спокоен, когда собеседник расстроен или раздражён.",
       "weights": {
         "accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": -1,
         "credit_specialist": 3,
-        "bank_operator": 3,
-        "mortgage_specialist": 3,
-        "credit_analyst": -1,
         "financial_analyst": -1,
         "economist": -1,
-        "macroeconomic_analyst": -1,
         "budgeting_specialist": -1,
         "economic_security": -1,
-        "risk_manager": -1,
         "procurement_specialist": 1,
         "insurance_agent": 3,
-        "business_analyst": 2,
-        "ecommerce_specialist": 1
+        "business_analyst": 2
       }
     },
     {
@@ -195,21 +127,13 @@
       "text": "Мне нравится замечать закономерности в данных и делать выводы.",
       "weights": {
         "accountant": -1,
-        "payroll_accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": 1,
-        "credit_analyst": 3,
         "financial_analyst": 3,
-        "financial_manager": 2,
         "economist": 3,
-        "macroeconomic_analyst": 3,
         "budgeting_specialist": 1,
         "economic_security": 2,
-        "risk_manager": 3,
         "insurance_agent": -1,
-        "business_analyst": 3,
-        "ecommerce_specialist": 2
+        "business_analyst": 3
       }
     },
     {
@@ -217,12 +141,9 @@
       "text": "Мне интересно планировать бюджет: распределять деньги и следить за расходами.",
       "weights": {
         "accountant": 1,
-        "chief_accountant": 2,
         "financial_analyst": 2,
-        "financial_manager": 3,
         "economist": 1,
         "budgeting_specialist": 3,
-        "risk_manager": 1,
         "procurement_specialist": 1
       }
     },
@@ -231,11 +152,7 @@
       "text": "Мне нравится искать поставщиков, сравнивать условия и договариваться.",
       "weights": {
         "accountant": -1,
-        "payroll_accountant": -1,
-        "financial_manager": 1,
-        "macroeconomic_analyst": -1,
-        "procurement_specialist": 3,
-        "ecommerce_specialist": 1
+        "procurement_specialist": 3
       }
     },
     {
@@ -243,25 +160,15 @@
       "text": "Я внимателен к деталям: датам, номерам, подписям, формулировкам.",
       "weights": {
         "accountant": 3,
-        "payroll_accountant": 3,
-        "chief_accountant": 3,
         "tax_consultant": 2,
-        "tax_inspector": 2,
         "credit_specialist": 1,
-        "bank_operator": 2,
-        "mortgage_specialist": 1,
-        "credit_analyst": 2,
         "financial_analyst": 2,
-        "financial_manager": 1,
         "economist": 2,
-        "macroeconomic_analyst": 2,
         "budgeting_specialist": 2,
         "economic_security": 2,
-        "risk_manager": 1,
         "procurement_specialist": 1,
         "insurance_agent": 1,
-        "business_analyst": 1,
-        "ecommerce_specialist": 1
+        "business_analyst": 1
       }
     },
     {
@@ -269,17 +176,10 @@
       "text": "Мне интересно выявлять риски и просчитывать ситуации заранее.",
       "weights": {
         "accountant": 1,
-        "payroll_accountant": 1,
-        "chief_accountant": 2,
         "tax_consultant": 2,
-        "tax_inspector": 2,
         "credit_specialist": 1,
-        "mortgage_specialist": 1,
-        "credit_analyst": 3,
         "financial_analyst": 1,
-        "financial_manager": 2,
         "economic_security": 3,
-        "risk_manager": 3,
         "procurement_specialist": 1,
         "insurance_agent": 1,
         "business_analyst": 1
@@ -290,23 +190,13 @@
       "text": "Я могу долго концентрироваться на одной задаче без отвлечения.",
       "weights": {
         "accountant": 1,
-        "payroll_accountant": 2,
-        "chief_accountant": 1,
         "tax_consultant": 1,
-        "tax_inspector": 1,
-        "bank_operator": 1,
-        "mortgage_specialist": 1,
-        "credit_analyst": 1,
         "financial_analyst": 1,
-        "financial_manager": 1,
         "economist": 1,
-        "macroeconomic_analyst": 2,
         "budgeting_specialist": 1,
         "economic_security": 1,
-        "risk_manager": 1,
         "insurance_agent": 1,
-        "business_analyst": 1,
-        "ecommerce_specialist": 1
+        "business_analyst": 1
       }
     },
     {
@@ -314,23 +204,13 @@
       "text": "Мне нравится работать самостоятельно и отвечать за свой результат.",
       "weights": {
         "accountant": 1,
-        "payroll_accountant": 2,
-        "chief_accountant": 1,
         "tax_consultant": 1,
-        "tax_inspector": 1,
-        "bank_operator": 1,
-        "mortgage_specialist": 1,
-        "credit_analyst": 1,
         "financial_analyst": 1,
-        "financial_manager": 1,
         "economist": 1,
-        "macroeconomic_analyst": 2,
         "budgeting_specialist": 1,
         "economic_security": 1,
-        "risk_manager": 1,
         "insurance_agent": 1,
-        "business_analyst": 1,
-        "ecommerce_specialist": 1
+        "business_analyst": 1
       }
     },
     {
@@ -338,20 +218,12 @@
       "text": "Мне интересно узнавать, как зарабатывают компании и от чего зависит прибыль.",
       "weights": {
         "accountant": -1,
-        "payroll_accountant": -1,
-        "chief_accountant": 1,
         "tax_consultant": 1,
-        "tax_inspector": 1,
-        "credit_analyst": 2,
         "financial_analyst": 2,
-        "financial_manager": 3,
         "economist": 2,
-        "macroeconomic_analyst": 3,
         "budgeting_specialist": 1,
         "economic_security": 1,
-        "risk_manager": 1,
-        "business_analyst": 2,
-        "ecommerce_specialist": 2
+        "business_analyst": 2
       }
     },
     {
@@ -359,21 +231,14 @@
       "text": "Я не боюсь отказов и умею делать выводы из неудач.",
       "weights": {
         "accountant": -2,
-        "payroll_accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": -1,
-        "tax_inspector": -1,
         "credit_specialist": 2,
-        "credit_analyst": -2,
         "financial_analyst": -1,
         "economist": -1,
-        "macroeconomic_analyst": -1,
         "budgeting_specialist": -1,
         "economic_security": -1,
-        "risk_manager": -1,
         "procurement_specialist": -1,
-        "insurance_agent": 3,
-        "ecommerce_specialist": 3
+        "insurance_agent": 3
       }
     },
     {
@@ -381,23 +246,15 @@
       "text": "Мне интересно помогать людям решать финансовые вопросы.",
       "weights": {
         "accountant": -1,
-        "chief_accountant": -1,
         "tax_consultant": 1,
-        "tax_inspector": -1,
         "credit_specialist": 3,
-        "bank_operator": 3,
-        "mortgage_specialist": 3,
-        "credit_analyst": -1,
         "financial_analyst": -1,
         "economist": -1,
-        "macroeconomic_analyst": -1,
         "budgeting_specialist": -1,
         "economic_security": -1,
-        "risk_manager": -1,
         "procurement_specialist": 1,
         "insurance_agent": 3,
-        "business_analyst": 2,
-        "ecommerce_specialist": 1
+        "business_analyst": 2
       }
     },
     {
@@ -405,19 +262,10 @@
       "text": "Мне нравится наводить порядок: раскладывать по категориям, систематизировать, вести списки.",
       "weights": {
         "accountant": 2,
-        "payroll_accountant": 2,
-        "chief_accountant": 2,
         "tax_consultant": 1,
-        "tax_inspector": 2,
-        "bank_operator": 1,
-        "mortgage_specialist": 1,
-        "credit_analyst": 1,
-        "financial_manager": 1,
         "economist": 1,
-        "macroeconomic_analyst": 1,
         "budgeting_specialist": 2,
         "economic_security": 1,
-        "risk_manager": 1,
         "procurement_specialist": 2,
         "insurance_agent": -1,
         "business_analyst": 1
@@ -428,19 +276,11 @@
       "text": "Мне интересно разбираться в новых программах и автоматизировать рутину.",
       "weights": {
         "accountant": 1,
-        "payroll_accountant": 1,
-        "chief_accountant": 1,
-        "bank_operator": 1,
-        "credit_analyst": 1,
         "financial_analyst": 1,
-        "financial_manager": 1,
         "economist": 1,
-        "macroeconomic_analyst": 1,
         "budgeting_specialist": 1,
         "economic_security": 1,
-        "risk_manager": 1,
-        "business_analyst": 2,
-        "ecommerce_specialist": 3
+        "business_analyst": 2
       }
     }
   ],

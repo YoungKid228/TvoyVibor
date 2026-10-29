@@ -56,7 +56,7 @@ pwaproject/
 │   ├── data/                   # контент, редактируется без изменения кода
 │   │   ├── directions.json     # направления подготовки
 │   │   ├── programs.json       # 4 программы подготовки (разделы — заглушки)
-│   │   ├── professions.json    # 20 профессий (id, programId, title, description)
+│   │   ├── professions.json    # 10 профессий (id, programId, title, description)
 │   │   ├── professionDetails.json # карточки галереи: задачи и навыки / зарплата в ЕАО / карьера
 │   │   └── tests.json          # вопросы с весами + тесты (см. п. 5)
 │   └── types/
@@ -115,7 +115,7 @@ graph TD
 ]
 ```
 
-**`professions.json`** — 20 профессий направления с привязкой к программам:
+**`professions.json`** — 10 профессий направления с привязкой к программам:
 
 ```json
 [
