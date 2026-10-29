@@ -9,6 +9,9 @@ type Props = {
   onOpenProgram: (programId: string, profileName?: string) => void;
 };
 
+/** Одинаковая длина вступления для всех карточек профилей магистратуры */
+const LEAD_LENGTH = 110;
+
 /** Срок обучения и формы — без стоимости, мест и проходных баллов */
 function formatProgramLine(program: Program): string | null {
   const parts: string[] = [];
@@ -42,13 +45,22 @@ function formatProfilesLine(program: Program): string | null {
   return `Профили: ${program.profiles.join(" · ")}`;
 }
 
-/** Первое предложение описания профиля — короткое вступление в карточке */
+/**
+ * Короткое вступление профиля для карточки направления.
+ * Длина у всех профилей одинаковая: текст набирается до LEAD_LENGTH
+ * символов по границе слова, лишнее скрывается многоточием.
+ */
 function profileLead(program: Program, profileName: string): string | null {
   const profile = program.profileDetails.find((p) => p.name === profileName);
-  const text = profile?.description?.[0];
+  const text = profile?.description?.join(" ");
   if (!text) return null;
-  const [first] = text.split(/(?<=\.)\s/);
-  return first.length > 160 ? `${first.slice(0, 157)}…` : first;
+
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= LEAD_LENGTH) return clean;
+
+  const cut = clean.slice(0, LEAD_LENGTH);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
 export default function DirectionsPage({
@@ -110,7 +122,7 @@ export default function DirectionsPage({
                             : ""}
                         </span>
                         {lead && (
-                          <span className="mt-1 block text-sm text-stone-600">
+                          <span className="mt-1 block line-clamp-2 text-sm text-stone-600">
                             {lead}
                           </span>
                         )}
