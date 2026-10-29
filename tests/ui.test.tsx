@@ -169,6 +169,28 @@ describe("DirectionsPage", () => {
   });
 });
 
+describe("ProgramPage", () => {
+  it("не показывает блок «Приём», баллы и места", () => {
+    const programs = programsData as Program[];
+    const bachelor = programs.find((p) => p.id === "finance_credit")!;
+    const { queryByText, queryAllByText, getAllByText } = render(
+      <ProgramPage
+        program={bachelor}
+        professions={[]}
+        onBack={() => {}}
+        onOpenProfession={() => {}}
+      />,
+    );
+
+    expect(queryByText("Приём")).toBeNull();
+    // минимальные баллы убраны, сами дисциплины остались
+    expect(getAllByText("Русский язык").length).toBeGreaterThan(0);
+    expect(queryAllByText(/—\s*40/).length).toBe(0);
+    expect(queryAllByText(/балл/i).length).toBe(0);
+    expect(queryAllByText(/мест/i).length).toBe(0);
+  });
+});
+
 describe("AsciiBackground", () => {
   it("рендерит canvas и не падает в среде без поддержки 2D-контекста", () => {
     const { container } = render(

@@ -92,6 +92,30 @@ function Careers({ careers }: { careers: ProgramCareer[] }) {
 }
 
 /**
+ * Убирает из текста минимальные баллы:
+ * «Русский язык — 40» → «Русский язык»,
+ * «экономика — 60 баллов» → «экономика».
+ */
+function stripScores(text: string): string {
+  return text
+    .replace(/\s*[—–-]\s*(не\s+менее\s+)?\d+\s*балл(?:ов|а)?\b\s*/gi, " ")
+    .replace(/\s*[—–-]\s*\d+\s*$/, "")
+    .replace(/\(\s*\d+\s*балл(?:ов|а)?\s*\)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Убирает из примечания предложения про количество мест */
+function stripNote(note: string | null): string | null {
+  if (!note) return null;
+  const parts = note
+    .split(/(?<=\.)\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !/\bмест\b/i.test(s));
+  return parts.length > 0 ? parts.join(" ") : null;
+}
+
+/**
  * Варианты поступления: форма, база и срок обучения.
  * Количество мест, стоимость и проходные баллы в приложении не показываются.
  */
@@ -180,6 +204,7 @@ function ProgramFacts({
 }
 
 function ProfileSection({ profile }: { profile: ProgramProfile }) {
+  const note = stripNote(profile.note);
   const hasContent =
     profile.description ||
     profile.highlights ||
@@ -189,20 +214,20 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
     profile.howItWorks ||
     profile.disciplines ||
     profile.competencies ||
-    profile.note;
+    note;
 
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4">
       <h3 className="text-base font-semibold text-stone-800" data-testid="profile-name">
         {profile.name}
       </h3>
-      {profile.note && (
-        <p className="mt-1 text-sm text-stone-500">{profile.note}</p>
+      {note && (
+        <p className="mt-1 text-sm text-stone-500">{note}</p>
       )}
       {profile.exams && (
         <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
           {profile.exams.map((exam) => (
-            <li key={exam}>Вступительное испытание: {exam}</li>
+            <li key={exam}>Вступительное испытание: {stripScores(exam)}</li>
           ))}
         </ul>
       )}
@@ -273,9 +298,9 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
           <GroupList groups={profile.competencies} />
         </div>
       )}
-      {profile.note && (
+      {note && (
         <p className="mt-3 text-sm italic text-stone-400" data-testid="pending-section">
-          {profile.note}
+          {note}
         </p>
       )}
       {profile.headQuote && (
@@ -318,6 +343,16 @@ export default function ProgramPage({
       : undefined;
   const shownProfiles =
     isMultiProfile && selectedProfile ? [selectedProfile] : program.profileDetails;
+
+  /* Баллы и количество мест в приложении не показываем */
+  const cleanedAdmission = (program.admission ?? [])
+    .map((group) => ({
+      group: group.group,
+      items: group.items
+        .map(stripScores)
+        .filter((item) => item.length > 0 && !/балл/i.test(item)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <section aria-label={`${program.title} (${program.level})`}>
@@ -396,22 +431,16 @@ export default function ProgramPage({
 
       <div className="flex flex-col gap-6">
         {!isMultiProfile &&
-          program.profileDetails.map((profile) => (
-            <Card key={profile.name} title="Приём">
-              {profile.exams && (
-                <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
-                  {profile.exams.map((exam) => (
-                    <li key={exam}>{exam}</li>
-                  ))}
-                </ul>
-              )}
-              {profile.headQuote && (
-                <blockquote className="mt-2 border-l-4 border-orange-300 pl-3 text-sm italic text-stone-600">
-                  «{profile.headQuote}»
-                </blockquote>
-              )}
-            </Card>
-          ))}
+          program.profileDetails
+            .filter((profile) => profile.headQuote)
+            .map((profile) => (
+              <blockquote
+                key={profile.name}
+                className="border-l-4 border-orange-300 pl-3 text-sm italic text-stone-600"
+              >
+                «{profile.headQuote}»
+              </blockquote>
+            ))}
 
         {program.admissionOptions && program.admissionOptions.length > 0 && (
           <Card title="Варианты поступления">
@@ -419,9 +448,9 @@ export default function ProgramPage({
           </Card>
         )}
 
-        {program.admission && (
-          <Card title="Вступительные испытания и минимальные баллы">
-            <GroupList groups={program.admission} />
+        {cleanedAdmission.length > 0 && (
+          <Card title="Вступительные испытания">
+            <GroupList groups={cleanedAdmission} />
           </Card>
         )}
 
