@@ -31,12 +31,6 @@ export type CareerTest = {
   questionIds: string[];
 };
 
-/** Тест по конкретной профессии: 10 вопросов про реальные рабочие задачи */
-export type ProfessionTest = {
-  professionId: string;
-  questions: string[];
-};
-
 export type Profession = {
   id: string;
   directionId: string;

@@ -6,10 +6,8 @@ type Props = {
   profession: Profession | undefined;
   detail: ProfessionDetail | undefined;
   program: Program | undefined;
-  hasTest: boolean;
   onBack: () => void;
   onOpenProgram: (programId: string) => void;
-  onOpenTest: (professionId: string) => void;
 };
 
 function PendingNote({ text }: { text: string }) {
@@ -45,10 +43,8 @@ export default function ProfessionPage({
   profession,
   detail,
   program,
-  hasTest,
   onBack,
   onOpenProgram,
-  onOpenTest,
 }: Props) {
   if (!profession) {
     return (
@@ -77,18 +73,6 @@ export default function ProfessionPage({
       </PixelButton>
 
       <h2 className="mb-1 text-xl font-semibold">{profession.title}</h2>
-      {hasTest && (
-        <PixelButton
-          type="button"
-          variant="primary"
-          data-testid="open-profession-test"
-          onClick={() => onOpenTest(profession.id)}
-          className="min-h-11 px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-          style={{ marginTop: 8, marginBottom: 24 }}
-        >
-          Пройти тест по профессии →
-        </PixelButton>
-      )}
       {program && (
         <p className="mb-6 text-sm text-orange-700">
           {program.code} · {program.title} · {program.level}

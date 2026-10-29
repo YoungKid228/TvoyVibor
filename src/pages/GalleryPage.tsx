@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { Profession, Program } from "../types/test";
 import { programLabel } from "../lib/programLabel";
 import ProfessionCarousel from "../components/ProfessionCarousel";
-import PixelButton from "../components/PixelButton";
 import PixelCard from "../components/PixelCard";
 import SpecialText from "../components/SpecialText";
 
@@ -10,14 +9,12 @@ type Props = {
   professions: Profession[];
   programs: Program[];
   onOpenProfession: (professionId: string) => void;
-  onOpenTest: (professionId: string) => void;
 };
 
 export default function GalleryPage({
   professions,
   programs,
   onOpenProfession,
-  onOpenTest,
 }: Props) {
   const [query, setQuery] = useState("");
   const [programId, setProgramId] = useState<string>("all");
@@ -118,16 +115,6 @@ export default function GalleryPage({
                 {profession.description}
               </span>
             </button>
-            <PixelButton
-              type="button"
-              variant="neutral"
-              data-testid="profession-card-test-btn"
-              onClick={() => onOpenTest(profession.id)}
-              className="min-h-11 w-full px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-              style={{ marginTop: 12 }}
-            >
-              Пройти тест по профессии →
-            </PixelButton>
           </PixelCard>
         ))}
         {filtered.length === 0 && (

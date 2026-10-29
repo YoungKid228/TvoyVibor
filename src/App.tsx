@@ -7,7 +7,6 @@ import testsData from "./data/tests.json";
 import directionsData from "./data/directions.json";
 import programsData from "./data/programs.json";
 import professionDetailsData from "./data/professionDetails.json";
-import professionTestsData from "./data/professionTests.json";
 import type {
   CareerTest,
   Direction,
@@ -15,14 +14,12 @@ import type {
   ProfessionDetail,
   Program,
   Question,
-  ProfessionTest,
 } from "./types/test";
 import HomePage from "./pages/HomePage";
 import TestPage from "./pages/TestPage";
 import ClubPage from "./pages/ClubPage";
 import GalleryPage from "./pages/GalleryPage";
 import ProfessionPage from "./pages/ProfessionPage";
-import ProfessionTestPage from "./pages/ProfessionTestPage";
 import DirectionsPage from "./pages/DirectionsPage";
 import ProgramPage from "./pages/ProgramPage";
 import PguGalleryPage from "./pages/PguGalleryPage";
@@ -32,17 +29,11 @@ const professions = professionsData as Profession[];
 const directions = directionsData as Direction[];
 const programs = programsData as Program[];
 const professionDetails = professionDetailsData as Record<string, ProfessionDetail>;
-const professionTests = (professionTestsData as { tests: ProfessionTest[] }).tests
-  .filter((t) => professions.some((p) => p.id === t.professionId));
-const professionTestByProfession = new Map(
-  professionTests.map((t) => [t.professionId, t]),
-);
 const { tests } = testsData as unknown as { tests: CareerTest[] };
 
 type View =
   | { name: "home" }
   | { name: "test"; testId: string }
-  | { name: "profession-test"; professionId: string }
   | { name: "club" }
   | { name: "gallery" }
   | { name: "profession"; professionId: string }
@@ -52,7 +43,7 @@ type View =
   | { name: "game" };
 
 const navItems: { key: View["name"]; label: string; activeFor: string[] }[] = [
-  { key: "home", label: "Тесты", activeFor: ["home", "test", "profession-test"] },
+  { key: "home", label: "Тесты", activeFor: ["home", "test"] },
   { key: "gallery", label: "Галерея профессий", activeFor: ["gallery", "profession"] },
   { key: "directions", label: "Направления", activeFor: ["directions", "program"] },
   { key: "pgu-gallery", label: "Галерея ПГУ", activeFor: ["pgu-gallery"] },
@@ -100,12 +91,7 @@ export default function App() {
         <HomePage
           tests={tests}
           directions={directions}
-          professions={professions}
-          professionTests={professionTests}
           onSelect={(testId) => setView({ name: "test", testId })}
-          onSelectProfessionTest={(professionId) =>
-            setView({ name: "profession-test", professionId })
-          }
         />
       )}
       {view.name === "test" && (() => {
@@ -137,34 +123,6 @@ export default function App() {
           />
         );
       })()}
-      {view.name === "profession-test" && (() => {
-        const pt = professionTestByProfession.get(view.professionId);
-        if (!pt) {
-          return (
-            <p className="text-stone-600">
-              Тест не найден.{" "}
-              <button
-                type="button"
-                onClick={() => setView({ name: "home" })}
-                className="text-orange-700 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-              >
-                На главную
-              </button>
-            </p>
-          );
-        }
-        return (
-          <ProfessionTestPage
-            key={pt.professionId}
-            test={pt}
-            profession={professions.find((p) => p.id === pt.professionId)}
-            onExit={() => setView({ name: "home" })}
-            onOpenProfession={(professionId) =>
-              setView({ name: "profession", professionId })
-            }
-          />
-        );
-      })()}
       {view.name === "club" && <ClubPage />}
       {view.name === "pgu-gallery" && <PguGalleryPage />}
       {view.name === "game" && <GamePage />}
@@ -174,9 +132,6 @@ export default function App() {
           programs={programs}
           onOpenProfession={(professionId) =>
             setView({ name: "profession", professionId })
-          }
-          onOpenTest={(professionId) =>
-            setView({ name: "profession-test", professionId })
           }
         />
       )}
@@ -189,12 +144,8 @@ export default function App() {
               pr.id ===
               professions.find((p) => p.id === view.professionId)?.programId,
           )}
-          hasTest={professionTestByProfession.has(view.professionId)}
           onBack={() => setView({ name: "gallery" })}
           onOpenProgram={(programId) => setView({ name: "program", programId })}
-          onOpenTest={(professionId) =>
-            setView({ name: "profession-test", professionId })
-          }
         />
       )}
       {view.name === "directions" && (
