@@ -10,7 +10,7 @@ type Props = {
 };
 
 /** Одинаковая длина вступления для всех карточек профилей магистратуры */
-const LEAD_LENGTH = 110;
+const LEAD_LENGTH = 160;
 
 /** Срок обучения и формы — без стоимости, мест и проходных баллов */
 function formatProgramLine(program: Program): string | null {
@@ -122,7 +122,7 @@ export default function DirectionsPage({
                             : ""}
                         </span>
                         {lead && (
-                          <span className="mt-1 block line-clamp-2 text-sm text-stone-600">
+                          <span className="mt-1 block line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
                             {lead}
                           </span>
                         )}
