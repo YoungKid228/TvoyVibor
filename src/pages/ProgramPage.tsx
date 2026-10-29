@@ -18,6 +18,11 @@ type Props = {
 
 import PixelButton from "../components/PixelButton";
 import PixelCard from "../components/PixelCard";
+import {
+  profileDuration,
+  profileForm,
+  profileSummary,
+} from "../lib/profileCards";
 
 const pendingNote =
   "Раздел готовится — информация будет добавлена с официальной страницы программы.";
@@ -109,18 +114,6 @@ function stripScores(text: string): string {
     .trim();
 }
 
-/** Убирает из примечания предложения про количество мест */
-function stripNote(note: string | null): string | null {
-  if (!note) return null;
-  const parts = note
-    .split(/(?<=\.)\s+/)
-    .map((s) => s.trim())
-    .filter(
-      (s) => s.length > 0 && !/(^|[^\p{L}])мест(?![\p{L}])/iu.test(s),
-    );
-  return parts.length > 0 ? parts.join(" ") : null;
-}
-
 /**
  * Варианты поступления: форма, база и срок обучения.
  * Количество мест, стоимость и проходные баллы в приложении не показываются.
@@ -169,15 +162,6 @@ function isProfileRedundant(program: Program, profile: string): boolean {
   return normalize(program.title) === normalize(profile);
 }
 
-function ProfileForms({ profile }: { profile: ProgramProfile }) {
-  if (!profile.forms || profile.forms.length === 0) return null;
-  return (
-    <p className="text-sm text-stone-500">
-      Форма обучения: {profile.forms.join(", ").toLowerCase()}
-    </p>
-  );
-}
-
 function ProgramFacts({
   program,
 }: {
@@ -209,8 +193,15 @@ function ProgramFacts({
   );
 }
 
-function ProfileSection({ profile }: { profile: ProgramProfile }) {
-  const note = stripNote(profile.note);
+function ProfileSection({
+  program,
+  profile,
+}: {
+  program: Program;
+  profile: ProgramProfile;
+}) {
+  const form = profileForm(profile);
+  const duration = profileDuration(program, profile);
   const hasContent =
     profile.description ||
     profile.highlights ||
@@ -219,17 +210,13 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
     profile.careers ||
     profile.howItWorks ||
     profile.disciplines ||
-    profile.competencies ||
-    note;
+    profile.competencies;
 
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-4">
       <h3 className="text-base font-semibold text-stone-800" data-testid="profile-name">
         {profile.name}
       </h3>
-      {note && (
-        <p className="mt-1 text-sm text-stone-500">{note}</p>
-      )}
       {profile.exams && (
         <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
           {profile.exams.map((exam) => (
@@ -237,8 +224,9 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
           ))}
         </ul>
       )}
-      <div className="mt-2">
-        <ProfileForms profile={profile} />
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-500">
+        {form && <span>Форма обучения: {form.toLowerCase()}</span>}
+        {duration && <span>Срок обучения: {duration}</span>}
       </div>
 
       {!hasContent && (
@@ -303,11 +291,6 @@ function ProfileSection({ profile }: { profile: ProgramProfile }) {
           <h4 className="mb-1 text-sm font-medium text-stone-700">Компетенции</h4>
           <GroupList groups={profile.competencies} />
         </div>
-      )}
-      {note && (
-        <p className="mt-3 text-sm italic text-stone-400" data-testid="pending-section">
-          {note}
-        </p>
       )}
       {profile.headQuote && (
         <blockquote className="mt-3 border-l-4 border-orange-300 pl-3 text-sm italic text-stone-600">
@@ -378,18 +361,20 @@ export default function ProgramPage({
         {program.level}
         {program.profiles.length === 1 &&
           !isProfileRedundant(program, program.profiles[0]) &&
-          ` — профиль: ${program.profiles[0]}`}
+          ` — направленность: ${program.profiles[0]}`}
       </p>
       {isMultiProfile && (
         <div className="mt-6 mb-8">
           <PixelCard>
             <h3 className="mb-2 text-base font-medium text-stone-700">
-              Профили магистратуры
+              Направленности магистратуры
             </h3>
             <ul className="flex flex-col gap-2">
               {program.profileDetails.map((p) => {
                 const active = p.name === selectedProfile?.name;
-                const forms = p.forms;
+                const form = profileForm(p);
+                const duration = profileDuration(program, p);
+                const summary = profileSummary(p);
                 return (
                   <li key={p.name}>
                     <button
@@ -410,9 +395,16 @@ export default function ProgramPage({
                       >
                         {p.name}
                       </span>
-                      {forms && forms.length > 0 && (
-                        <span className="mt-0.5 block text-xs text-stone-500">
-                          Форма обучения: {forms.join(", ").toLowerCase()}
+                      <span className="mt-0.5 block text-xs text-stone-500">
+                        {form && (
+                          <span>Форма обучения: {form.toLowerCase()}</span>
+                        )}
+                        {form && duration && <span> · </span>}
+                        {duration && <span>Срок обучения: {duration}</span>}
+                      </span>
+                      {summary && (
+                        <span className="mt-1 line-clamp-2 block text-xs text-stone-600">
+                          {summary}
                         </span>
                       )}
                     </button>
@@ -545,10 +537,12 @@ export default function ProgramPage({
         {isMultiProfile && (
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-medium text-stone-700">
-              {selectedProfile ? "О выбранном профиле" : "Профили программы"}
+              {selectedProfile
+                ? "О выбранной направленности"
+                : "Направленности программы"}
             </h3>
             {shownProfiles.map((profile) => (
-              <ProfileSection key={profile.name} profile={profile} />
+              <ProfileSection key={profile.name} program={program} profile={profile} />
             ))}
           </div>
         )}

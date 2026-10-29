@@ -100,7 +100,7 @@ test("directions: programs, master profiles and related professions", async ({
     .filter({ hasText: "Электронная коммерция" })
     .getByTestId("directions-open-program")
     .click();
-  await expect(page.getByText("Профили магистратуры")).toBeVisible();
+  await expect(page.getByText("Направленности магистратуры")).toBeVisible();
   await expect(page.getByTestId("profile-name")).toHaveCount(1);
   await expect(
     page.getByTestId("profile-name").filter({ hasText: "Электронная коммерция" }),
@@ -110,8 +110,8 @@ test("directions: programs, master profiles and related professions", async ({
   await expect(
     page.getByText("Заочная: 2 года 6 месяцев", { exact: true }),
   ).toBeVisible();
-  // ЭБиУР — только заочно, остальные профили — очно
-  // (в переключателе профилей и в карточке выбранного профиля)
+  // ЭБиУР — только заочно, остальные направленности — очно
+  // (в переключателе направленностей и в карточке выбранной направленности)
   await expect(page.getByText("Форма обучения: заочная", { exact: true })).toHaveCount(1);
 
   // переключение профиля магистратуры

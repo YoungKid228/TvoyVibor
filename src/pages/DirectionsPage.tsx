@@ -2,15 +2,17 @@ import { useMemo, useState } from "react";
 import type { Program, Profession } from "../types/test";
 import PixelCard from "../components/PixelCard";
 import SpecialText from "../components/SpecialText";
+import {
+  profileDuration,
+  profileForm,
+  profileSummary,
+} from "../lib/profileCards";
 
 type Props = {
   programs: Program[];
   professions: Profession[];
   onOpenProgram: (programId: string, profileName?: string) => void;
 };
-
-/** Одинаковая длина вступления для всех карточек профилей магистратуры */
-const LEAD_LENGTH = 160;
 
 /** Срок обучения и формы — без стоимости, мест и проходных баллов */
 function formatProgramLine(program: Program): string | null {
@@ -42,25 +44,7 @@ function formatProfilesLine(program: Program): string | null {
       ? null
       : `Направленность: ${program.profiles[0]}`;
   }
-  return `Профили: ${program.profiles.join(" · ")}`;
-}
-
-/**
- * Короткое вступление профиля для карточки направления.
- * Длина у всех профилей одинаковая: текст набирается до LEAD_LENGTH
- * символов по границе слова, лишнее скрывается многоточием.
- */
-function profileLead(program: Program, profileName: string): string | null {
-  const profile = program.profileDetails.find((p) => p.name === profileName);
-  const text = profile?.description?.join(" ");
-  if (!text) return null;
-
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= LEAD_LENGTH) return clean;
-
-  const cut = clean.slice(0, LEAD_LENGTH);
-  const lastSpace = cut.lastIndexOf(" ");
-  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+  return `Направленности: ${program.profiles.join(" · ")}`;
 }
 
 export default function DirectionsPage({
@@ -93,14 +77,16 @@ export default function DirectionsPage({
         {programs.map((program) => {
           const isMultiProfile = program.profiles.length > 1;
 
-          /* Магистратура — один блок с переключением профилей внутри */
+          /* Магистратура — один блок с переключением направленностей внутри */
           if (isMultiProfile) {
             const selected =
               selectedProfiles[program.id] ?? program.profiles[0];
-            const lead = profileLead(program, selected);
-            const forms = program.profileDetails.find(
+            const selectedProfile = program.profileDetails.find(
               (p) => p.name === selected,
-            )?.forms;
+            );
+            const selectedSummary = selectedProfile
+              ? profileSummary(selectedProfile)
+              : null;
 
             return (
               <div
@@ -116,14 +102,21 @@ export default function DirectionsPage({
 
                   <div
                     role="group"
-                    aria-label="Профили магистратуры"
+                    aria-label="Направленности магистратуры"
                     className="mt-2 flex flex-col gap-2"
                   >
                     {program.profiles.map((profileName) => {
                       const active = profileName === selected;
-                      const profileForms = program.profileDetails.find(
+                      const profile = program.profileDetails.find(
                         (p) => p.name === profileName,
-                      )?.forms;
+                      );
+                      const form = profile ? profileForm(profile) : null;
+                      const duration = profile
+                        ? profileDuration(program, profile)
+                        : null;
+                      const summary = profile
+                        ? profileSummary(profile)
+                        : null;
                       return (
                         <button
                           key={profileName}
@@ -149,10 +142,18 @@ export default function DirectionsPage({
                           >
                             {profileName}
                           </span>
-                          {profileForms && profileForms.length > 0 && (
-                            <span className="mt-0.5 block text-xs text-stone-500">
-                              Форма обучения:{" "}
-                              {profileForms.join(", ").toLowerCase()}
+                          <span className="mt-0.5 block text-xs text-stone-500">
+                            {form && (
+                              <span>Форма обучения: {form.toLowerCase()}</span>
+                            )}
+                            {form && duration && <span> · </span>}
+                            {duration && (
+                              <span>Срок обучения: {duration}</span>
+                            )}
+                          </span>
+                          {summary && (
+                            <span className="mt-1 line-clamp-2 block text-xs text-stone-600">
+                              {summary}
                             </span>
                           )}
                         </button>
@@ -160,15 +161,9 @@ export default function DirectionsPage({
                     })}
                   </div>
 
-                  {forms && forms.length > 0 && (
-                    <span className="mt-2 block text-sm text-stone-500">
-                      {program.title}
-                      {` · ${forms.join(", ").toLowerCase()} форма`}
-                    </span>
-                  )}
-                  {lead && (
-                    <span className="mt-1 line-clamp-2 min-h-[2.5rem] text-sm text-stone-600">
-                      {lead}
+                  {selectedSummary && (
+                    <span className="mt-2 line-clamp-2 min-h-[2.5rem] block text-sm text-stone-600">
+                      {selectedSummary}
                     </span>
                   )}
 
