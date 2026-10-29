@@ -190,7 +190,7 @@ function ProgramFacts({
       (program.forms.length === 1 ? program.duration : null),
   }));
   return (
-    <ul className="mb-4 mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
+    <ul className="mb-4 mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
       {rows.length > 1 ? (
         rows.map((r) => (
           <li key={r.form}>
@@ -381,7 +381,7 @@ export default function ProgramPage({
           ` — профиль: ${program.profiles[0]}`}
       </p>
       {isMultiProfile && (
-        <div className="mt-4">
+        <div className="mt-6 mb-8">
           <PixelCard>
             <h3 className="mb-2 text-base font-medium text-stone-700">
               Профили магистратуры
