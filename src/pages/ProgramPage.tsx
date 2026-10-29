@@ -95,12 +95,16 @@ function Careers({ careers }: { careers: ProgramCareer[] }) {
  * Убирает из текста минимальные баллы:
  * «Русский язык — 40» → «Русский язык»,
  * «экономика — 60 баллов» → «экономика».
+ * Границы слов заданы через \p{L}, потому что \b в JS работает только с ASCII.
  */
 function stripScores(text: string): string {
   return text
-    .replace(/\s*[—–-]\s*(не\s+менее\s+)?\d+\s*балл(?:ов|а)?\b\s*/gi, " ")
-    .replace(/\s*[—–-]\s*\d+\s*$/, "")
-    .replace(/\(\s*\d+\s*балл(?:ов|а)?\s*\)/gi, "")
+    .replace(
+      /\s*[—–-]\s*(?:не\s+менее\s+)?\d+\s*балл(?:ов|а)?(?![\p{L}])/giu,
+      " ",
+    )
+    .replace(/\s*[—–-]\s*\d+(?!\d)\s*$/u, "")
+    .replace(/\(\s*\d+\s*балл(?:ов|а)?(?!\p{L})\s*\)/giu, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -111,7 +115,9 @@ function stripNote(note: string | null): string | null {
   const parts = note
     .split(/(?<=\.)\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !/\bмест\b/i.test(s));
+    .filter(
+      (s) => s.length > 0 && !/(^|[^\p{L}])мест(?![\p{L}])/iu.test(s),
+    );
   return parts.length > 0 ? parts.join(" ") : null;
 }
 

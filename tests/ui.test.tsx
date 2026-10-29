@@ -189,6 +189,27 @@ describe("ProgramPage", () => {
     expect(queryAllByText(/балл/i).length).toBe(0);
     expect(queryAllByText(/мест/i).length).toBe(0);
   });
+
+  it("убирает баллы и места из карточки профиля магистратуры", () => {
+    const programs = programsData as Program[];
+    const masters = programs.find((p) => p.id === "masters")!;
+    const { queryAllByText, getAllByText } = render(
+      <ProgramPage
+        program={masters}
+        professions={[]}
+        profileName="Аналитическая экономика"
+        onBack={() => {}}
+        onOpenProfession={() => {}}
+      />,
+    );
+
+    // дисциплина осталась, минимальный балл — нет
+    expect(getAllByText(/Вступительное испытание: Экономика$/).length).toBe(1);
+    expect(queryAllByText(/60 баллов/).length).toBe(0);
+    // примечание про места убрано целиком
+    expect(queryAllByText(/платных мест/i).length).toBe(0);
+    expect(queryAllByText(/бюджетных мест/i).length).toBe(0);
+  });
 });
 
 describe("AsciiBackground", () => {
