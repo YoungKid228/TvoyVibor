@@ -167,12 +167,12 @@ export default function ProfessionCarousel({
                       alt={profession.title}
                       loading="lazy"
                       decoding="async"
-                      className="mb-2 h-32 w-full shrink-0 rounded-lg object-cover"
+                      className="mb-2 aspect-[3/2] w-full shrink-0 rounded-lg object-cover"
                     />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="mb-2 flex h-32 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 text-4xl font-bold text-white/70"
+                      className="mb-2 flex aspect-[3/2] w-full shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 text-4xl font-bold text-white/70"
                     >
                       {profession.title.charAt(0)}
                     </span>
