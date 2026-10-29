@@ -6,6 +6,7 @@ import ProfessionCarousel from "../src/components/ProfessionCarousel";
 import type { Profession, Program } from "../src/types/test";
 import ProgramPage from "../src/pages/ProgramPage";
 import DirectionsPage from "../src/pages/DirectionsPage";
+import ClubPage from "../src/pages/ClubPage";
 import programsData from "../src/data/programs.json";
 
 afterEach(cleanup);
@@ -223,6 +224,16 @@ describe("ProgramPage", () => {
     // примечание про места убрано целиком
     expect(queryAllByText(/платных мест/i).length).toBe(0);
     expect(queryAllByText(/бюджетных мест/i).length).toBe(0);
+  });
+});
+
+describe("ClubPage", () => {
+  it("содержит ссылку на сообщество клуба в MAX", () => {
+    const { getByTestId } = render(<ClubPage />);
+    const link = getByTestId("club-community-link") as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://max.ru/id7901009072_gos3");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.getAttribute("target")).toBe("_blank");
   });
 });
 

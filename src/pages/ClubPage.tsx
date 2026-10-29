@@ -215,10 +215,29 @@ export default function ClubPage() {
           Для кого: студенты СПО и ВО всех факультетов и курсов.
         </p>
         <p className="mt-1 text-sm text-stone-600">
-          Как стать резидентом: заполнить анкету в группе клуба ВКонтакте или
+          Как стать резидентом: заполнить анкету в сообществе клуба или
           обратиться в Управление по внеучебной работе и молодёжной политике
           ПГУ.
         </p>
+      </PixelCard>
+
+      <PixelCard>
+        <h3 className="mb-2 text-base font-medium text-stone-700">
+          Сообщество клуба
+        </h3>
+        <p className="mb-3 text-sm text-stone-600">
+          Анонсы встреч, воркшопов и хакатонов, заявки на участие и записи —
+          в сообществе клуба молодого предпринимателя в мессенджере MAX.
+        </p>
+        <a
+          href="https://max.ru/id7901009072_gos3"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="club-community-link"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-orange-700 bg-orange-500 px-4 text-sm font-medium text-orange-50 shadow-[0_4px_0_0_#7c2d12] transition-colors hover:bg-orange-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+        >
+          Перейти в сообщество MAX →
+        </a>
       </PixelCard>
     </section>
   );
