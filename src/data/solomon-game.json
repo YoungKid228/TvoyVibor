@@ -1,0 +1,682 @@
+{
+  "$comment": "Игровые данные «Белка Соломон». Источник правды — scripts/balance_sim.py; числа сверены scripts/verify_hermes_doc.py. При изменении правил сначала правь симулятор, потом этот файл.",
+  "meta": {
+    "title": "Белка Соломон",
+    "subtitle": "Студент ПГУ им. Шолом-Алейхема в Биробиджане",
+    "character": {
+      "name": "Соломон",
+      "species": "белка",
+      "assetDir": "src/assets/squirrel"
+    },
+    "setting": {
+      "city": "Биробиджан",
+      "region": "Еврейская автономная область",
+      "university": "ПГУ им. Шолом-Алейхема"
+    }
+  },
+  "scales": [
+    {
+      "id": "mood",
+      "label": "Настроение",
+      "icon": "ui/mood",
+      "start": 70,
+      "min": 0,
+      "max": 100,
+      "decay": 5
+    },
+    {
+      "id": "energy",
+      "label": "Энергия",
+      "icon": "ui/energy",
+      "start": 100,
+      "min": 0,
+      "max": 100,
+      "decay": 12
+    },
+    {
+      "id": "hunger",
+      "label": "Сытость",
+      "icon": "ui/hunger",
+      "start": 90,
+      "min": 0,
+      "max": 100,
+      "decay": 6
+    },
+    {
+      "id": "hygiene",
+      "label": "Гигиена",
+      "icon": "ui/hygiene",
+      "start": 95,
+      "min": 0,
+      "max": 100,
+      "decay": 5
+    },
+    {
+      "id": "solomon",
+      "label": "Настроение Соломона",
+      "icon": "ui/solomon",
+      "start": 75,
+      "min": 0,
+      "max": 100,
+      "decay": 4
+    }
+  ],
+  "scenarios": {
+    "short": {
+      "id": "short",
+      "label": "Неделя",
+      "days": 7,
+      "capital": 20000,
+      "mandatoryTotal": 12500,
+      "salary": 15000,
+      "salaryDay": 4,
+      "phoneDay": 5,
+      "giftDay": 6,
+      "blizzardDay": 4,
+      "weeklyShiftCap": 4,
+      "mandatoryMode": "once",
+      "hungerDecay": 6,
+      "hygieneDecay": 5,
+      "solomonDecay": 4
+    },
+    "long": {
+      "id": "long",
+      "label": "Месяц",
+      "days": 28,
+      "capital": 20000,
+      "mandatoryTotal": 12500,
+      "salary": 15000,
+      "salaryDay": 8,
+      "phoneDay": 12,
+      "giftDay": 19,
+      "blizzardDay": 0,
+      "weeklyShiftCap": 4,
+      "mandatoryMode": "weekly",
+      "hungerDecay": 5,
+      "hygieneDecay": 4,
+      "solomonDecay": 4
+    }
+  },
+  "jobs": [
+    {
+      "id": "dishes",
+      "label": "Помощь по хозяйству",
+      "icon": "ui/job-dishes",
+      "pay": 600,
+      "moodCost": 4,
+      "energyCost": 12,
+      "repCost": 0,
+      "limit": 4,
+      "requires": null,
+      "local": false
+    },
+    {
+      "id": "kafe",
+      "label": "Подработка в кафе",
+      "icon": "ui/job-kafe",
+      "pay": 1100,
+      "moodCost": 6,
+      "energyCost": 24,
+      "repCost": 0,
+      "limit": 3,
+      "requires": null,
+      "local": false
+    },
+    {
+      "id": "tutor",
+      "label": "Репетиторство",
+      "icon": "ui/job-tutor",
+      "pay": 1400,
+      "moodCost": 5,
+      "energyCost": 20,
+      "repCost": 0,
+      "limit": 3,
+      "requires": "rep>=2",
+      "local": false
+    },
+    {
+      "id": "freelance",
+      "label": "Фриланс",
+      "icon": "ui/job-freelance",
+      "pay": 1000,
+      "moodCost": 6,
+      "energyCost": 16,
+      "repCost": 0,
+      "limit": 3,
+      "requires": "laptop",
+      "local": false
+    },
+    {
+      "id": "courier",
+      "label": "Курьерская доставка",
+      "icon": "ui/job-courier",
+      "pay": 1600,
+      "moodCost": 8,
+      "energyCost": 30,
+      "repCost": 0,
+      "limit": 2,
+      "requires": null,
+      "local": false
+    },
+    {
+      "id": "market",
+      "label": "Подработка на Центральном рынке",
+      "icon": "ui/job-market",
+      "pay": 700,
+      "moodCost": 4,
+      "energyCost": 12,
+      "repCost": 0,
+      "limit": 3,
+      "requires": null,
+      "local": true
+    },
+    {
+      "id": "hegan",
+      "label": "Сопровождение гостей из Хэгана",
+      "icon": "ui/job-hegan",
+      "pay": 1200,
+      "moodCost": 5,
+      "energyCost": 20,
+      "repCost": 0,
+      "limit": 2,
+      "requires": null,
+      "local": true
+    },
+    {
+      "id": "dorm",
+      "label": "Уборка в общежитии",
+      "icon": "ui/job-dorm",
+      "pay": 600,
+      "moodCost": 3,
+      "energyCost": 10,
+      "repCost": 0,
+      "limit": 3,
+      "requires": null,
+      "local": true
+    }
+  ],
+  "spends": [
+    {
+      "id": "kino",
+      "label": "Поход в кино",
+      "icon": "ui/spend-kino",
+      "cost": 800,
+      "local": false,
+      "moodGain": 6,
+      "energyCost": 12,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 1,
+      "solomonGain": 3
+    },
+    {
+      "id": "cafe",
+      "label": "Кафе с друзьями",
+      "icon": "ui/spend-cafe",
+      "cost": 1500,
+      "local": false,
+      "moodGain": 8,
+      "energyCost": 8,
+      "hungerGain": 20,
+      "hygieneGain": 0,
+      "repGain": 1,
+      "solomonGain": 2
+    },
+    {
+      "id": "bowling",
+      "label": "Боулинг",
+      "icon": "ui/spend-bowling",
+      "cost": 2000,
+      "local": false,
+      "moodGain": 9,
+      "energyCost": 22,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 1,
+      "solomonGain": 4
+    },
+    {
+      "id": "park",
+      "label": "Прогулка в парке",
+      "icon": "ui/spend-park",
+      "cost": 250,
+      "local": false,
+      "moodGain": 4,
+      "energyCost": 8,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 1,
+      "solomonGain": 3
+    },
+    {
+      "id": "products",
+      "label": "Продукты",
+      "icon": "ui/spend-products",
+      "cost": 350,
+      "local": false,
+      "moodGain": 1,
+      "energyCost": 0,
+      "hungerGain": 30,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 1
+    },
+    {
+      "id": "coffee",
+      "label": "Кофе",
+      "icon": "ui/spend-coffee",
+      "cost": 150,
+      "local": false,
+      "moodGain": 2,
+      "energyCost": 0,
+      "hungerGain": 5,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 1
+    },
+    {
+      "id": "pet",
+      "label": "Погладить Соломона",
+      "icon": "ui/spend-pet",
+      "cost": 0,
+      "local": false,
+      "moodGain": 1,
+      "energyCost": 2,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 5
+    },
+    {
+      "id": "shower",
+      "label": "Душ",
+      "icon": "ui/spend-shower",
+      "cost": 250,
+      "local": false,
+      "moodGain": 1,
+      "energyCost": 5,
+      "hungerGain": 0,
+      "hygieneGain": 35,
+      "repGain": 0,
+      "solomonGain": 0
+    },
+    {
+      "id": "clothes",
+      "label": "Новая одежда",
+      "icon": "ui/spend-clothes",
+      "cost": 3000,
+      "local": false,
+      "moodGain": 8,
+      "energyCost": 0,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 2,
+      "solomonGain": 0
+    },
+    {
+      "id": "toyshop",
+      "label": "Игрушка Соломону",
+      "icon": "ui/spend-toyshop",
+      "cost": 1200,
+      "local": false,
+      "moodGain": 7,
+      "energyCost": 0,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 6
+    },
+    {
+      "id": "schnitzel",
+      "label": "Шницель по-биробиджански",
+      "icon": "ui/spend-schnitzel",
+      "cost": 450,
+      "local": true,
+      "moodGain": 5,
+      "energyCost": 0,
+      "hungerGain": 20,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 2
+    },
+    {
+      "id": "matza",
+      "label": "Матца и хумус в кошерном кафе",
+      "icon": "ui/spend-matza",
+      "cost": 380,
+      "local": true,
+      "moodGain": 4,
+      "energyCost": 0,
+      "hungerGain": 15,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 1
+    },
+    {
+      "id": "breakfast",
+      "label": "Кефир и бублики у вокзала",
+      "icon": "ui/spend-breakfast",
+      "cost": 200,
+      "local": true,
+      "moodGain": 2,
+      "energyCost": 0,
+      "hungerGain": 10,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 0
+    },
+    {
+      "id": "dreidel",
+      "label": "Дрейдл на Арбате",
+      "icon": "ui/spend-dreidel",
+      "cost": 500,
+      "local": true,
+      "moodGain": 4,
+      "energyCost": 0,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 2
+    },
+    {
+      "id": "amulet",
+      "label": "Талесман со звездой Давида",
+      "icon": "ui/spend-amulet",
+      "cost": 600,
+      "local": true,
+      "moodGain": 5,
+      "energyCost": 0,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 2
+    },
+    {
+      "id": "festival",
+      "label": "Фестиваль еврейской культуры",
+      "icon": "ui/spend-festival",
+      "cost": 1800,
+      "local": true,
+      "moodGain": 9,
+      "energyCost": 10,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 1,
+      "solomonGain": 3
+    },
+    {
+      "id": "zoo",
+      "label": "Амурский тигр в зоопарке",
+      "icon": "ui/spend-zoo",
+      "cost": 400,
+      "local": true,
+      "moodGain": 4,
+      "energyCost": 5,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 1
+    }
+  ],
+  "items": [
+    {
+      "id": "laptop",
+      "label": "Ноутбук",
+      "icon": "ui/item-laptop",
+      "cost": 8000,
+      "effect": "freelance",
+      "note": "Открывает фриланс"
+    },
+    {
+      "id": "washer",
+      "label": "Стиральная машина",
+      "icon": "ui/item-washer",
+      "cost": 6000,
+      "effect": "hygiene",
+      "note": "Гигиена падает на 2 вместо 5 в день"
+    },
+    {
+      "id": "gym",
+      "label": "Абонемент в зал",
+      "icon": "ui/item-gym",
+      "cost": 2500,
+      "effect": "mood",
+      "note": "+1 настроения каждый день"
+    }
+  ],
+  "events": [
+    {
+      "id": "phone",
+      "day": 5,
+      "title": "Сломался телефон",
+      "options": [
+        {
+          "id": "repair",
+          "label": "Ремонт",
+          "cost": 4000,
+          "moodGain": 3,
+          "solomonGain": 1
+        },
+        {
+          "id": "new",
+          "label": "Купить новый",
+          "cost": 12000,
+          "moodGain": 6,
+          "solomonGain": 3
+        },
+        {
+          "id": "old",
+          "label": "Сдать старый",
+          "cost": 0,
+          "moodGain": -6,
+          "solomonGain": -4
+        }
+      ]
+    },
+    {
+      "id": "gift",
+      "day": 6,
+      "title": "День рождения друга",
+      "options": [
+        {
+          "id": "big",
+          "label": "Дорогой подарок и кафе",
+          "cost": 5000,
+          "moodGain": 9,
+          "solomonGain": 3
+        },
+        {
+          "id": "mid",
+          "label": "Подарок и праздник",
+          "cost": 2500,
+          "moodGain": 6,
+          "solomonGain": 2
+        },
+        {
+          "id": "small",
+          "label": "Символический подарок",
+          "cost": 500,
+          "moodGain": 2,
+          "solomonGain": 1
+        }
+      ]
+    },
+    {
+      "id": "blizzard",
+      "day": 4,
+      "title": "Снегопад парализует город",
+      "options": [
+        {
+          "id": "taxi",
+          "label": "Такси",
+          "cost": 400,
+          "moodGain": -2,
+          "energyCost": 0
+        },
+        {
+          "id": "bus",
+          "label": "Автобус",
+          "cost": 0,
+          "moodGain": -1,
+          "energyCost": 0
+        },
+        {
+          "id": "walk",
+          "label": "Пешком",
+          "cost": 0,
+          "moodGain": -3,
+          "energyCost": 15
+        }
+      ]
+    }
+  ],
+  "professions": [
+    {
+      "id": "none",
+      "label": "Без профессии",
+      "icon": "ui/prof-none",
+      "payBonus": 0,
+      "moodBonus": 0,
+      "shiftBonus": 0,
+      "repBonus": 0
+    },
+    {
+      "id": "student",
+      "label": "Студент",
+      "icon": "ui/prof-student",
+      "payBonus": 0,
+      "moodBonus": 0,
+      "shiftBonus": 0,
+      "repBonus": 2
+    },
+    {
+      "id": "courier",
+      "label": "Курьер",
+      "icon": "ui/prof-courier",
+      "payBonus": 0,
+      "moodBonus": 0,
+      "shiftBonus": 1,
+      "repBonus": 0
+    },
+    {
+      "id": "engineer",
+      "label": "Инженер",
+      "icon": "ui/prof-engineer",
+      "payBonus": 150,
+      "moodBonus": 5,
+      "shiftBonus": 0,
+      "repBonus": 0
+    },
+    {
+      "id": "creative",
+      "label": "Творческий",
+      "icon": "ui/prof-creative",
+      "payBonus": 500,
+      "moodBonus": 0,
+      "shiftBonus": 0,
+      "repBonus": 0
+    }
+  ],
+  "grades": {
+    "money": [
+      {
+        "min": 7000,
+        "label": "Отличный результат"
+      },
+      {
+        "min": 3000,
+        "label": "Хороший результат"
+      },
+      {
+        "min": 0,
+        "label": "Есть над чем поработать"
+      },
+      {
+        "min": -1,
+        "label": "Бюджет ушёл в минус"
+      }
+    ],
+    "mood": [
+      {
+        "min": 75,
+        "label": "Настроение отличное"
+      },
+      {
+        "min": 50,
+        "label": "Настроение хорошее"
+      },
+      {
+        "min": 25,
+        "label": "Настроение так себе"
+      },
+      {
+        "min": 0,
+        "label": "Настроение плохое"
+      }
+    ],
+    "solomon": [
+      {
+        "min": 75,
+        "label": "Соломон доволен"
+      },
+      {
+        "min": 50,
+        "label": "Соломон спокоен"
+      },
+      {
+        "min": 25,
+        "label": "Соломон скучает"
+      },
+      {
+        "min": 0,
+        "label": "Соломон грустит"
+      }
+    ]
+  },
+  "audit": {
+    "optionalSpendShareGood": 0.5,
+    "optionalSpendShareBad": 0.65,
+    "requiredCoverage": 1.0,
+    "note": "Разбор расходов: покрытие обязательных трат, доля необязательных, долг, подушка, остаток в кошельке."
+  },
+  "rules": {
+    "weeklyShiftCap": 4,
+    "burnoutMood": 25,
+    "burnoutRate": 0.7,
+    "boringDaily": 2,
+    "sleepMood": 4,
+    "sleepEnergy": 45,
+    "saveBonusAt": 4000,
+    "saveBonus": 1,
+    "solomonUpAt": 60,
+    "solomonUp": 1,
+    "solomonDown": -3,
+    "gloomyOwnerMood": 30,
+    "solomonHappy": 60,
+    "creditMoodPenalty": 5,
+    "inactiveSolomonDecay": 4,
+    "gloomyOwnerExtraSolomonDecay": 2,
+    "debtDailyMoodPenalty": 3,
+    "hungerPenalty": 5,
+    "hygienePenalty": 3,
+    "creditsAllowed": true,
+    "note": "Константы модели. Должны совпадать с scripts/balance_sim.py."
+  },
+  "spendCategories": {
+    "obligatory": "обязательные",
+    "household": "быт",
+    "entertainment": "развлечения",
+    "purchases": "покупки",
+    "gifts": "подарки",
+    "phone": "телефон",
+    "savings": "накопления"
+  },
+  "entertainmentSpends": [
+    "kino",
+    "cafe",
+    "bowling",
+    "park",
+    "clothes",
+    "toyshop"
+  ]
+}
