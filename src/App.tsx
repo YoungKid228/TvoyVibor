@@ -23,7 +23,8 @@ import ProfessionPage from "./pages/ProfessionPage";
 import DirectionsPage from "./pages/DirectionsPage";
 import ProgramPage from "./pages/ProgramPage";
 import PguGalleryPage from "./pages/PguGalleryPage";
-import GamePage from "./pages/GamePage";
+import BudgetGamePage from "./budget/pages/BudgetGamePage";
+import { GameProvider } from "./budget/state/BudgetGameContext";
 
 const professions = professionsData as Profession[];
 const directions = directionsData as Direction[];
@@ -125,7 +126,14 @@ export default function App() {
       })()}
       {view.name === "club" && <ClubPage />}
       {view.name === "pgu-gallery" && <PguGalleryPage />}
-      {view.name === "game" && <GamePage />}
+      {/* Основная игра — «Белка Соломон». Пиксель-раннер (GamePage) оставлен
+          в проекте как заглушка и отключён: включается обратно заменой тега
+          ниже на <GamePage />. */}
+      {view.name === "game" && (
+        <GameProvider>
+          <BudgetGamePage />
+        </GameProvider>
+      )}
       {view.name === "gallery" && (
         <GalleryPage
           professions={professions}
