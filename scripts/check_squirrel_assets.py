@@ -1,4 +1,7 @@
-"""Проверка RGBA-ассетов: альфа корректна, фон прозрачный."""
+"""Проверка ассетов: альфа корректна, фон прозрачный.
+
+Поддерживаются PNG 8-bit: RGBA (color type 6) и палитра с tRNS (color type 3).
+"""
 import glob
 import os
 import struct
@@ -11,17 +14,25 @@ def load_rgba(path):
     pos = 8
     idat = b""
     w = h = ct = None
+    palette = b""
+    trns = b""
     while pos < len(data):
         ln = struct.unpack(">I", data[pos:pos + 4])[0]
         typ = data[pos + 4:pos + 8]
         chunk = data[pos + 8:pos + 8 + ln]
         if typ == b"IHDR":
             w, h, bd, ct, cm, fl, il = struct.unpack(">IIBBBBB", chunk)
-            assert bd == 8 and ct == 6 and il == 0, (bd, ct, il)
+            assert bd == 8 and ct in (3, 6) and il == 0, (bd, ct, il)
+        elif typ == b"PLTE":
+            palette = chunk
+        elif typ == b"tRNS":
+            trns = chunk
         elif typ == b"IDAT":
             idat += chunk
         pos += 12 + ln
     raw = zlib.decompress(idat)
+    if ct == 3:
+        return _palette_to_rgba(w, h, raw, palette, trns)
     stride = w * 4
     out = bytearray(h * stride)
     prev = bytearray(stride)
@@ -51,6 +62,57 @@ def load_rgba(path):
                 line[i] = (line[i] + pr) & 0xFF
         out[y * stride:(y + 1) * stride] = line
         prev = line
+    return w, h, out
+
+
+def _unfilter(raw, height, stride, bpp):
+    """Раскодит строки PNG (фильтры 0-4) в плоский буфер."""
+    out = bytearray(height * stride)
+    prev = bytearray(stride)
+    p = 0
+    for y in range(height):
+        ft = raw[p]
+        p += 1
+        line = bytearray(raw[p:p + stride])
+        p += stride
+        if ft == 1:
+            for i in range(bpp, stride):
+                line[i] = (line[i] + line[i - bpp]) & 0xFF
+        elif ft == 2:
+            for i in range(stride):
+                line[i] = (line[i] + prev[i]) & 0xFF
+        elif ft == 3:
+            for i in range(stride):
+                a = line[i - bpp] if i >= bpp else 0
+                line[i] = (line[i] + ((a + prev[i]) >> 1)) & 0xFF
+        elif ft == 4:
+            for i in range(stride):
+                a = line[i - bpp] if i >= bpp else 0
+                b = prev[i]
+                c = prev[i - bpp] if i >= bpp else 0
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                line[i] = (line[i] + pr) & 0xFF
+        out[y * stride:(y + 1) * stride] = line
+        prev = line
+    return out
+
+
+def _palette_to_rgba(w, h, raw, palette, trns):
+    """Палитровый PNG (color type 3) + tRNS -> буфер RGBA."""
+    assert palette, "у палитрового PNG нет чанка PLTE"
+    stride = w
+    idx = _unfilter(raw, h, stride, 1)
+    out = bytearray(h * stride * 4)
+    for i in range(h * stride):
+        pi = idx[i] * 3
+        r, g, b = palette[pi], palette[pi + 1], palette[pi + 2]
+        a = trns[idx[i]] if idx[i] < len(trns) else 255
+        o = i * 4
+        out[o] = r
+        out[o + 1] = g
+        out[o + 2] = b
+        out[o + 3] = a
     return w, h, out
 
 
