@@ -59,6 +59,15 @@
       "min": 0,
       "max": 100,
       "decay": 4
+    },
+    {
+      "id": "cleanliness",
+      "label": "Чистота Соломона",
+      "icon": "ui/loc-bathroom",
+      "start": 100,
+      "min": 0,
+      "max": 100,
+      "decay": 15
     }
   ],
   "scenarios": {
@@ -77,7 +86,8 @@
       "mandatoryMode": "once",
       "hungerDecay": 6,
       "hygieneDecay": 5,
-      "solomonDecay": 4
+      "solomonDecay": 4,
+      "cleanlinessDecay": 15
     },
     "long": {
       "id": "long",
@@ -94,7 +104,8 @@
       "mandatoryMode": "weekly",
       "hungerDecay": 5,
       "hygieneDecay": 4,
-      "solomonDecay": 4
+      "solomonDecay": 4,
+      "cleanlinessDecay": 15
     }
   },
   "jobs": [
@@ -277,7 +288,7 @@
     {
       "id": "pet",
       "label": "Погладить Соломона",
-      "icon": "ui/spend-pet",
+      "icon": "ui/heart-2",
       "cost": 0,
       "local": false,
       "moodGain": 1,
@@ -416,6 +427,19 @@
       "hygieneGain": 0,
       "repGain": 0,
       "solomonGain": 1
+    },
+    {
+      "id": "wash",
+      "label": "Вымыть Соломона",
+      "cost": 200,
+      "moodGain": 1,
+      "energyCost": 0,
+      "hungerGain": 0,
+      "hygieneGain": 0,
+      "repGain": 0,
+      "solomonGain": 2,
+      "local": false,
+      "icon": "ui/loc-bathroom"
     }
   ],
   "items": [
@@ -441,7 +465,7 @@
       "icon": "ui/item-gym",
       "cost": 2500,
       "effect": "mood",
-      "note": "+1 настроения каждый день"
+      "note": "+1 настроения в день, 2 недели"
     }
   ],
   "events": [
@@ -455,23 +479,28 @@
           "label": "Ремонт",
           "cost": 4000,
           "moodGain": 3,
-          "solomonGain": 1
+          "solomonGain": 1,
+          "icon": "ui/event-phone-repair"
         },
         {
           "id": "new",
           "label": "Купить новый",
           "cost": 12000,
           "moodGain": 6,
-          "solomonGain": 3
+          "solomonGain": 3,
+          "icon": "ui/event-phone-new"
         },
         {
           "id": "old",
           "label": "Сдать старый",
           "cost": 0,
           "moodGain": -6,
-          "solomonGain": -4
+          "solomonGain": -4,
+          "icon": "ui/event-phone-old"
         }
-      ]
+      ],
+      "icon": "ui/event-phone-repair",
+      "location": "university"
     },
     {
       "id": "gift",
@@ -483,23 +512,28 @@
           "label": "Дорогой подарок и кафе",
           "cost": 5000,
           "moodGain": 9,
-          "solomonGain": 3
+          "solomonGain": 3,
+          "icon": "ui/event-gift-big"
         },
         {
           "id": "mid",
           "label": "Подарок и праздник",
           "cost": 2500,
           "moodGain": 6,
-          "solomonGain": 2
+          "solomonGain": 2,
+          "icon": "ui/event-gift-mid"
         },
         {
           "id": "small",
           "label": "Символический подарок",
           "cost": 500,
           "moodGain": 2,
-          "solomonGain": 1
+          "solomonGain": 1,
+          "icon": "ui/event-gift-small"
         }
-      ]
+      ],
+      "icon": "ui/ui-birthday",
+      "location": "embankment"
     },
     {
       "id": "blizzard",
@@ -511,23 +545,28 @@
           "label": "Такси",
           "cost": 400,
           "moodGain": -2,
-          "energyCost": 0
+          "energyCost": 0,
+          "icon": "ui/event-blizzard-taxi"
         },
         {
           "id": "bus",
           "label": "Автобус",
           "cost": 0,
           "moodGain": -1,
-          "energyCost": 0
+          "energyCost": 0,
+          "icon": "ui/event-blizzard-bus"
         },
         {
           "id": "walk",
           "label": "Пешком",
           "cost": 0,
           "moodGain": -3,
-          "energyCost": 15
+          "energyCost": 15,
+          "icon": "ui/event-blizzard-walk"
         }
-      ]
+      ],
+      "icon": "ui/ui-blizzard",
+      "location": "city"
     }
   ],
   "professions": [
@@ -646,6 +685,10 @@
     "boringDaily": 2,
     "sleepMood": 4,
     "sleepEnergy": 45,
+    "sleepPerDay": 1,
+    "petPerDay": 3,
+    "repCap": 5,
+    "gymDays": 14,
     "saveBonusAt": 4000,
     "saveBonus": 1,
     "solomonUpAt": 60,
@@ -660,7 +703,11 @@
     "hungerPenalty": 5,
     "hygienePenalty": 3,
     "creditsAllowed": true,
-    "note": "Константы модели. Должны совпадать с scripts/balance_sim.py."
+    "note": "Константы модели. Должны совпадать с scripts/balance_sim.py.",
+    "washPerDay": 1,
+    "cleanAt": 67,
+    "dirtyAt": 33,
+    "cleanlinessDecay": 15
   },
   "spendCategories": {
     "obligatory": "обязательные",
@@ -678,5 +725,79 @@
     "park",
     "clothes",
     "toyshop"
-  ]
+  ],
+  "locations": {
+    "city": {
+      "id": "city",
+      "label": "Город",
+      "background": "backgrounds/loc-city",
+      "icon": "ui/loc-city",
+      "character": {
+        "height": 26,
+        "x": 40,
+        "y": 95
+      }
+    },
+    "arbat": {
+      "id": "arbat",
+      "label": "Арбат",
+      "background": "backgrounds/loc-arbat",
+      "icon": "ui/loc-arbat",
+      "character": {
+        "height": 32,
+        "x": 40,
+        "y": 93
+      }
+    },
+    "dorm": {
+      "id": "dorm",
+      "label": "Общежитие",
+      "background": "backgrounds/loc-dorm",
+      "icon": "ui/loc-dorm",
+      "character": {
+        "height": 28,
+        "x": 32,
+        "y": 95
+      }
+    },
+    "bathroom": {
+      "id": "bathroom",
+      "label": "Ванная",
+      "background": "backgrounds/loc-bathroom",
+      "icon": "ui/loc-bathroom",
+      "character": {
+        "height": 30,
+        "x": 40,
+        "y": 94
+      }
+    },
+    "university": {
+      "id": "university",
+      "label": "Университет",
+      "background": "backgrounds/loc-university",
+      "icon": "ui/loc-university",
+      "character": {
+        "height": 30,
+        "x": 27,
+        "y": 95
+      }
+    },
+    "embankment": {
+      "id": "embankment",
+      "label": "Набережная",
+      "background": "backgrounds/loc-embankment",
+      "icon": "ui/loc-embankment",
+      "character": {
+        "height": 26,
+        "x": 36,
+        "y": 96
+      }
+    }
+  },
+  "tabLocations": {
+    "work": "city",
+    "spend": "arbat",
+    "rest": "dorm",
+    "pet": "bathroom"
+  }
 }

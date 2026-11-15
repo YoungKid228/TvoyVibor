@@ -4,6 +4,7 @@ import type {
   GameEvent,
   Item,
   Job,
+  Location,
   Profession,
   Rules,
   Scenario,
@@ -22,6 +23,7 @@ import type {
 type RawJob = {
   id: string;
   label: string;
+  icon: string;
   pay: number;
   moodCost: number;
   energyCost: number;
@@ -33,6 +35,7 @@ type RawJob = {
 type RawSpend = {
   id: string;
   label: string;
+  icon: string;
   cost: number;
   moodGain: number;
   energyCost: number;
@@ -46,6 +49,7 @@ type RawSpend = {
 type RawItem = {
   id: string;
   label: string;
+  icon: string;
   cost: number;
   effect: "freelance" | "hygiene" | "mood";
   note: string;
@@ -54,6 +58,7 @@ type RawItem = {
 type RawProfession = {
   id: string;
   label: string;
+  icon: string;
   payBonus: number;
   moodBonus: number;
   shiftBonus: number;
@@ -64,14 +69,25 @@ type RawEvent = {
   id: string;
   day: number;
   title: string;
+  icon: string;
+  location: string;
   options: {
     id: string;
     label: string;
+    icon: string;
     cost: number;
     moodGain: number;
     solomonGain?: number;
     energyCost?: number;
   }[];
+};
+
+type RawLocation = {
+  id: string;
+  label: string;
+  background: string;
+  icon: string;
+  character: { height: number; x: number; y: number };
 };
 
 const data = raw as unknown as {
@@ -80,6 +96,8 @@ const data = raw as unknown as {
   items: RawItem[];
   professions: RawProfession[];
   events: RawEvent[];
+  locations: Record<string, RawLocation>;
+  tabLocations: Record<string, string>;
   scenarios: Record<ScenarioKey, Record<string, number | string>>;
   rules: Record<string, number>;
   spendCategories: Record<SpendCategoryKey, SpendCategory>;
@@ -89,6 +107,7 @@ const data = raw as unknown as {
 export const JOBS: Job[] = data.jobs.map((job) => ({
   id: job.id as Job["id"],
   label: job.label,
+  icon: job.icon,
   pay: job.pay,
   energyCost: job.energyCost,
   moodCost: job.moodCost,
@@ -100,6 +119,7 @@ export const JOBS: Job[] = data.jobs.map((job) => ({
 export const SPENDS: Spend[] = data.spends.map((spend) => ({
   id: spend.id as Spend["id"],
   label: spend.label,
+  icon: spend.icon,
   cost: spend.cost,
   moodGain: spend.moodGain,
   energyCost: spend.energyCost,
@@ -113,6 +133,7 @@ export const SPENDS: Spend[] = data.spends.map((spend) => ({
 export const ITEMS: Item[] = data.items.map((item) => ({
   id: item.id as Item["id"],
   label: item.label,
+  icon: item.icon,
   cost: item.cost,
   effect: item.effect,
   note: item.note,
@@ -121,6 +142,7 @@ export const ITEMS: Item[] = data.items.map((item) => ({
 export const PROFESSIONS: Profession[] = data.professions.map((prof) => ({
   id: prof.id as Profession["id"],
   label: prof.label,
+  icon: prof.icon,
   repBonus: prof.repBonus,
   shiftBonus: prof.shiftBonus,
   moodBonus: prof.moodBonus,
@@ -163,11 +185,14 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
 export const EVENTS: GameEvent[] = data.events.map((event) => ({
   id: event.id as GameEvent["id"],
   day: event.day,
-  title: EVENT_TITLES[event.id] ?? event.id,
+  title: EVENT_TITLES[event.id] ?? event.title,
   description: EVENT_DESCRIPTIONS[event.id] ?? "",
+  icon: event.icon,
+  location: event.location,
   options: event.options.map((option) => ({
     id: option.id,
     label: option.label,
+    icon: option.icon,
     cost: option.cost,
     moodGain: option.moodGain,
     solomonGain: option.solomonGain ?? 0,
@@ -183,6 +208,13 @@ export const RULES: Rules = {
   boringDaily: data.rules.boringDaily,
   sleepMood: data.rules.sleepMood,
   sleepEnergy: data.rules.sleepEnergy,
+  sleepPerDay: data.rules.sleepPerDay,
+  petPerDay: data.rules.petPerDay,
+  washPerDay: data.rules.washPerDay,
+  cleanAt: data.rules.cleanAt,
+  dirtyAt: data.rules.dirtyAt,
+  repCap: data.rules.repCap,
+  gymDays: data.rules.gymDays,
   saveBonusAt: data.rules.saveBonusAt,
   saveBonus: data.rules.saveBonus,
   solomonUpAt: data.rules.solomonUpAt,
@@ -198,6 +230,34 @@ export const RULES: Rules = {
 
 export const SPEND_CATEGORIES: Record<SpendCategoryKey, SpendCategory> =
   data.spendCategories;
+
+/**
+ * Локации — фоны сцен, где стоит Соломон.
+ *
+ * Фоны приходят без персонажа, поэтому локация описывает ещё и точку,
+ * где его поставить: координаты в процентах от кадра подобраны так, чтобы
+ * белка стояла на полу/снегу и не закрывала важные детали сцены.
+ */
+export const LOCATIONS: Record<string, Location> = Object.fromEntries(
+  Object.entries(data.locations).map(([id, loc]) => [
+    id,
+    {
+      id: loc.id,
+      label: loc.label,
+      background: loc.background,
+      icon: loc.icon,
+      character: { ...loc.character },
+    },
+  ]),
+);
+
+/** Какая вкладка открывает какую локацию: «Заработать» → город и т. д. */
+export const TAB_LOCATIONS: Record<string, string> = { ...data.tabLocations };
+
+/** Локация по идентификатору; неизвестная — первая доступная. */
+export function locationById(id: string): Location {
+  return LOCATIONS[id] ?? Object.values(LOCATIONS)[0];
+}
 
 /** Траты, которые в разборе считаются необязательными. */
 export const ENTERTAINMENT_SPENDS: string[] = data.entertainmentSpends;
@@ -219,6 +279,7 @@ export const SCENARIOS: Record<ScenarioKey, Scenario> = {
     hungerDecay: data.scenarios.short.hungerDecay as number,
     hygieneDecay: data.scenarios.short.hygieneDecay as number,
     solomonDecay: data.scenarios.short.solomonDecay as number,
+    cleanlinessDecay: data.scenarios.short.cleanlinessDecay as number,
   },
   long: {
     key: "long",
@@ -236,6 +297,7 @@ export const SCENARIOS: Record<ScenarioKey, Scenario> = {
     hungerDecay: data.scenarios.long.hungerDecay as number,
     hygieneDecay: data.scenarios.long.hygieneDecay as number,
     solomonDecay: data.scenarios.long.solomonDecay as number,
+    cleanlinessDecay: data.scenarios.long.cleanlinessDecay as number,
   },
 };
 

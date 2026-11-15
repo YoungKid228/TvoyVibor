@@ -14,6 +14,10 @@ import type { GameState, JobId } from "../core/types";
  * Это не «бот», а эталонные профили для проверки баланса: каждый из них
  * повторяет одноимённую стратегию `scripts/balance_sim.py` и даёт известный
  * результат. Если числа в игре разойдутся с эталоном — тесты упадут.
+ *
+ * День события — обычный день: сначала закрывается событие, потом игрок
+ * продолжает жить как обычно. Раньше стратегия на 5-м и 6-м дне просто
+ * прерывалась, и в таблицах выглядело так, будто игрок терял день.
  */
 
 type Policy = (state: GameState) => string[];
@@ -39,8 +43,10 @@ export const policySaver: Policy = (state) => {
   const acts: string[] = [];
   const scenario = SCENARIOS[state.scenarioKey];
 
-  if (state.day === scenario.phoneDay) return [resolveEvent(state, "repair")];
-  if (state.day === scenario.giftDay) return [resolveEvent(state, "small")];
+  // Событие само пишет свою подпись в журнал дня (`resolveEvent`), поэтому
+  // здесь её не дублируем.
+  if (state.day === scenario.phoneDay) resolveEvent(state, "repair");
+  if (state.day === scenario.giftDay) resolveEvent(state, "small");
 
   if (state.day === 1) acts.push(saveToSavings(state, 4000));
   if (state.scales.energy >= 30 && state.cash < 9000) {
@@ -56,8 +62,8 @@ export const policyWorker: Policy = (state) => {
   const acts: string[] = [];
   const scenario = SCENARIOS[state.scenarioKey];
 
-  if (state.day === scenario.phoneDay) return [resolveEvent(state, "repair")];
-  if (state.day === scenario.giftDay) return [resolveEvent(state, "mid")];
+  if (state.day === scenario.phoneDay) resolveEvent(state, "repair");
+  if (state.day === scenario.giftDay) resolveEvent(state, "mid");
 
   if (state.scales.energy >= 30) {
     acts.push(...tryJobs(state, ["courier", "kafe", "dishes"]));
@@ -76,8 +82,8 @@ export const policyBalanced: Policy = (state) => {
   const acts: string[] = [];
   const scenario = SCENARIOS[state.scenarioKey];
 
-  if (state.day === scenario.phoneDay) return [resolveEvent(state, "repair")];
-  if (state.day === scenario.giftDay) return [resolveEvent(state, "mid")];
+  if (state.day === scenario.phoneDay) resolveEvent(state, "repair");
+  if (state.day === scenario.giftDay) resolveEvent(state, "mid");
 
   if (state.day === 1) {
     acts.push(saveToSavings(state, 2000));
@@ -91,6 +97,8 @@ export const policyBalanced: Policy = (state) => {
   acts.push(buy(state, "pet"));
   if (state.scales.hunger < 50) acts.push(buy(state, "products"));
   if (state.scales.hygiene < 45) acts.push(buy(state, "shower"));
+  // Соломона моют, когда он начинает пачкаться: без этого он скучает сильнее.
+  if (state.scales.cleanliness < 80) acts.push(buy(state, "wash"));
   if (state.day === 3) acts.push(buy(state, "park"));
   return acts;
 };
@@ -100,8 +108,8 @@ export const policyGecko: Policy = (state) => {
   const acts: string[] = [];
   const scenario = SCENARIOS[state.scenarioKey];
 
-  if (state.day === scenario.phoneDay) return [resolveEvent(state, "new")];
-  if (state.day === scenario.giftDay) return [resolveEvent(state, "big")];
+  if (state.day === scenario.phoneDay) resolveEvent(state, "new");
+  if (state.day === scenario.giftDay) resolveEvent(state, "big");
 
   if (state.scales.energy < 30) {
     acts.push(rest(state));

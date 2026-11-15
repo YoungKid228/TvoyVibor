@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { decay, incomeMultiplier, round50, shiftPay } from "../../src/budget/core/mood";
-import { createInitialState } from "../../src/budget/core/reducer";
+import {
+  clampScales,
+  decay,
+  incomeMultiplier,
+  isGymActive,
+  round50,
+  shiftPay,
+} from "../../src/budget/core/mood";
+import {
+  buy,
+  buyItem,
+  createInitialState,
+  endDay,
+  rest,
+  startDay,
+  work,
+} from "../../src/budget/core/reducer";
 import { RULES } from "../../src/budget/data/scenario";
 
 describe("шкалы", () => {
@@ -96,5 +111,149 @@ describe("шкалы", () => {
     expect(g.scales.solomon).toBeLessThanOrEqual(100);
     expect(g.scales.mood).toBeGreaterThanOrEqual(0);
     expect(g.scales.solomon).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("спад шкал объясняет причины (обратная связь)", () => {
+  it("возвращает список причин изменения", () => {
+    const g = createInitialState();
+    const notes = decay(g);
+    expect(notes.length).toBeGreaterThan(0);
+    expect(notes.join("; ")).toContain("скука");
+  });
+
+  it("называет причину штрафа за голод, грязь и долг", () => {
+    const g = createInitialState();
+    g.scales.hunger = 0;
+    g.scales.hygiene = 0;
+    g.cash = -100;
+    const notes = decay(g).join("; ");
+    expect(notes).toContain("голод");
+    expect(notes).toContain("грязь");
+    expect(notes).toContain("долг");
+  });
+
+  it("называет бонус за подушку и за довольного Соломона", () => {
+    const g = createInitialState();
+    g.savings = 4000;
+    g.scales.solomon = 80;
+    const notes = decay(g).join("; ");
+    expect(notes).toContain("подушка");
+    expect(notes).toContain("довольный Соломон");
+  });
+});
+
+describe("обрезка шкал в ядре (аудит, проблема 1)", () => {
+  it("clampScales держит все шкалы в 0…100", () => {
+    const g = createInitialState();
+    g.scales.mood = 150;
+    g.scales.energy = 300;
+    g.scales.hunger = -20;
+    g.scales.hygiene = 500;
+    g.scales.solomon = 120;
+    clampScales(g);
+    expect(g.scales.mood).toBe(100);
+    expect(g.scales.energy).toBe(100);
+    expect(g.scales.hunger).toBe(0);
+    expect(g.scales.hygiene).toBe(100);
+    expect(g.scales.solomon).toBe(100);
+  });
+
+  it("настроение не уезжает за потолок после many покупок", () => {
+    const g = createInitialState();
+    startDay(g);
+    for (let i = 0; i < 40; i += 1) {
+      buy(g, "kino");
+    }
+    expect(g.scales.mood).toBeLessThanOrEqual(100);
+  });
+
+  it("доход не превышает базовую ставку при настроении выше 100", () => {
+    // При настроении 150 множитель давал 1,25 и курьер приносил 2 000 ₽
+    // вместо 1 600. Обрезка в ядре делает это невозможным.
+    const g = createInitialState();
+    startDay(g);
+    g.scales.mood = 150;
+    g.scales.energy = 100;
+    const result = work(g, "courier");
+    expect(result).toContain("+1600");
+  });
+});
+
+describe("сон ограничен одним разом в день (аудит, проблема 3)", () => {
+  it("второй сон в тот же день не даёт энергию", () => {
+    const g = createInitialState();
+    startDay(g);
+    g.scales.energy = 0;
+    expect(rest(g)).toBe("сон");
+    const energy = g.scales.energy;
+    expect(energy).toBe(45);
+    expect(rest(g)).toBe("сон уже был сегодня");
+    expect(g.scales.energy).toBe(energy);
+  });
+
+  it("счётчик сна обнуляется на следующий день", () => {
+    const g = createInitialState();
+    startDay(g);
+    rest(g);
+    expect(g.sleepsToday).toBe(1);
+    endDay(g, g.dayActions);
+    startDay(g);
+    expect(g.sleepsToday).toBe(0);
+    expect(rest(g)).toBe("сон");
+  });
+});
+
+describe("поглаживание ограничено (аудит, проблема 2)", () => {
+  it("не больше трёх поглаживаний в день", () => {
+    const g = createInitialState();
+    startDay(g);
+    for (let i = 0; i < 3; i += 1) {
+      expect(buy(g, "pet")).toContain("pet");
+    }
+    const solomon = g.scales.solomon;
+    expect(buy(g, "pet")).toBe("поглаживаний на сегодня хватает");
+    expect(g.scales.solomon).toBe(solomon);
+  });
+
+  it("счётчик поглаживаний обнуляется на следующий день", () => {
+    const g = createInitialState();
+    startDay(g);
+    for (let i = 0; i < 3; i += 1) buy(g, "pet");
+    endDay(g, g.dayActions);
+    startDay(g);
+    expect(g.petsToday).toBe(0);
+    expect(buy(g, "pet")).toContain("pet");
+  });
+
+  it("шкалы не набиваются кликами: Соломон и настроение в пределах 100", () => {
+    const g = createInitialState();
+    startDay(g);
+    for (let i = 0; i < 50; i += 1) {
+      buy(g, "pet");
+    }
+    expect(g.scales.solomon).toBeLessThanOrEqual(100);
+    expect(g.scales.mood).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("потолок репутации и срок абонемента", () => {
+  it("репутация не растёт выше потолка", () => {
+    const g = createInitialState();
+    startDay(g);
+    for (let i = 0; i < 20; i += 1) {
+      g.cash = 100000;
+      buy(g, "park");
+    }
+    expect(g.rep).toBeLessThanOrEqual(RULES.repCap);
+  });
+
+  it("абонемент в зал действует ограниченный срок", () => {
+    const g = createInitialState();
+    startDay(g);
+    buyItem(g, "gym");
+    expect(isGymActive(g)).toBe(true);
+    g.day = 1 + RULES.gymDays;
+    expect(isGymActive(g)).toBe(false);
   });
 });

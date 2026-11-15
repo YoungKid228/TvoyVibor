@@ -24,7 +24,7 @@ describe("эталонный прогон короткого режима (не�
       16700,
       4000,
       52.7,
-      54.7,
+      51.7,
       3,
       "Деньги есть, но Соломон несчастлив",
     ],
@@ -32,26 +32,26 @@ describe("эталонный прогон короткого режима (не�
       19850,
       19850,
       0,
-      45.4,
-      55.0,
+      46.6,
+      52.0,
       4,
       "Деньги есть, но Соломон несчастлив",
     ],
     Баланс: [
-      18900,
-      16900,
+      19500,
+      17500,
       2000,
-      67.3,
-      76.6,
-      3,
+      67.4,
+      83.6,
+      4,
       "Успех: и деньги есть, и Соломон счастлив",
     ],
     Гедонист: [
-      -1750,
-      -1750,
+      -5250,
+      -5250,
       0,
-      91.7,
-      71.6,
+      90.9,
+      70.9,
       3,
       "Соломон счастлив, но денег нет",
     ],
@@ -78,8 +78,8 @@ describe("эталонный прогон короткого режима (не�
     const cases: Record<string, [number, string]> = {
       Копилка: [0.265, "Расходы распределены грамотно"],
       Трудяга: [0.342, "Расходы покрыты, но резерв не создан"],
-      Баланс: [0.377, "Расходы распределены грамотно"],
-      Гедонист: [0.685, "Расходы превысили доходы"],
+      Баланс: [0.395, "Расходы распределены грамотно"],
+      Гедонист: [0.711, "Расходы превысили доходы"],
     };
     for (const [name, policy] of Object.entries(POLICIES)) {
       const s = stats(runScenario("short", "none", policy));
@@ -91,16 +91,19 @@ describe("эталонный прогон короткого режима (не�
   it("ход недели стратегии «Баланс» совпадает с эталоном", () => {
     const state = runScenario("short", "none", POLICIES["Баланс"]);
     const byDay = new Map(state.log.map((entry) => [entry.day, entry]));
-    const expectedRows: Record<number, [number, number, number, number, number]> =
-      {
-        1: [6100, 2000, 68, 56, 74],
-        2: [7450, 2000, 60, 24, 75],
-        3: [7200, 2000, 64, 14, 79],
-        4: [22200, 2000, 67, 57, 80],
-        5: [18200, 2000, 69, 57, 77],
-        6: [15700, 2000, 74, 57, 75],
-        7: [16900, 2000, 69, 35, 76],
-      };
+    // кошелёк, подушка, настроение, энергия, Соломон, чистота
+    const expectedRows: Record<
+      number,
+      [number, number, number, number, number, number]
+    > = {
+      1: [6100, 2000, 68, 56, 74, 85],
+      2: [7250, 2000, 61, 24, 77, 100],
+      3: [7000, 2000, 65, 14, 81, 85],
+      4: [21800, 2000, 69, 57, 84, 100],
+      5: [19000, 2000, 67, 35, 86, 85],
+      6: [17500, 2000, 69, 13, 91, 100],
+      7: [17500, 2000, 73, 56, 92, 85],
+    };
     for (const [day, want] of Object.entries(expectedRows)) {
       const row = byDay.get(Number(day));
       expect(row).toBeDefined();
@@ -110,25 +113,42 @@ describe("эталонный прогон короткого режима (не�
         row!.mood,
         row!.energy,
         row!.solomon,
+        row!.cleanliness,
       ]).toEqual(want);
     }
+  });
+
+  it("«Баланс» моет Соломона, остальные стратегии — нет", () => {
+    const balanced = runScenario("short", "none", POLICIES["Баланс"]);
+    const worker = runScenario("short", "none", POLICIES["Трудяга"]);
+    expect(balanced.log.some((d) => d.actions.some((a) => a.includes("wash")))).toBe(
+      true,
+    );
+    expect(worker.log.some((d) => d.actions.some((a) => a.includes("wash")))).toBe(
+      false,
+    );
+    // «Баланс» тратит на мытьё, но держит Соломона чистым и довольным.
+    const lastBalanced = balanced.log[balanced.log.length - 1];
+    const lastWorker = worker.log[worker.log.length - 1];
+    expect(lastBalanced.cleanliness).toBeGreaterThan(lastWorker.cleanliness);
+    expect(balanced.scales.solomon).toBeGreaterThan(worker.scales.solomon);
   });
 });
 
 describe("эталонный прогон длинного режима (месяц)", () => {
   const expected: Record<string, [number, number, number, number, number, string]> =
     {
-      Копилка: [16450, 12450, 4000, 44.5, 21.1, "Деньги есть, но Соломон несчастлив"],
-      Трудяга: [23500, 23500, 0, 14.2, 18.8, "Деньги есть, но Соломон несчастлив"],
+      Копилка: [16450, 12450, 4000, 38.8, 15.8, "Деньги есть, но Соломон несчастлив"],
+      Трудяга: [23450, 23450, 0, 13.6, 15.2, "Деньги есть, но Соломон несчастлив"],
       Баланс: [
-        23650,
-        21650,
+        21100,
+        19100,
         2000,
-        57.9,
-        88.1,
+        65.3,
+        94.9,
         "Успех: и деньги есть, и Соломон счастлив",
       ],
-      Гедонист: [-23250, -23250, 0, 89.5, 62.0, "Соломон счастлив, но денег нет"],
+      Гедонист: [-27050, -27050, 0, 82.5, 41.4, "Провал: ни денег, ни счастья"],
     };
 
   for (const [name, policy] of Object.entries(POLICIES)) {
@@ -158,6 +178,14 @@ describe("выбор профессии слабо влияет на игру", 
       (prof) => stats(runScenario("short", prof, POLICIES["Баланс"])).verdict,
     );
     expect(new Set(verdicts).size).toBe(1);
+  });
+
+  it("«Инженер» получает маленький денежный перевес, как «Творческий»", () => {
+    const engineer = stats(runScenario("short", "engineer", POLICIES["Баланс"]));
+    const creative = stats(runScenario("short", "creative", POLICIES["Баланс"]));
+    const none = stats(runScenario("short", "none", POLICIES["Баланс"]));
+    expect(engineer.finalBalance).toBeGreaterThan(none.finalBalance);
+    expect(creative.finalBalance).toBeGreaterThan(engineer.finalBalance);
   });
 });
 

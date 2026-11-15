@@ -44,7 +44,8 @@ export default function WalletPanel({
           </div>
           {inDebt && (
             <div className="text-xs font-medium text-red-700">
-              Долг {Math.abs(cash).toLocaleString("ru-RU")} ₽
+              Долг {Math.abs(cash).toLocaleString("ru-RU")} ₽ — траты
+              продолжают уходить в минус
             </div>
           )}
         </div>
@@ -81,7 +82,7 @@ export default function WalletPanel({
                 type="button"
                 onClick={() => onSave(amount)}
                 disabled={amount === 0 || cash < amount}
-                className="min-h-9 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                className="min-h-11 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
               >
                 {amount === 0 ? "ничего" : `${amount.toLocaleString("ru-RU")} ₽`}
               </PixelButton>
@@ -99,7 +100,7 @@ export default function WalletPanel({
                 type="button"
                 onClick={() => onWithdraw(amount)}
                 disabled={savings < amount}
-                className="min-h-9 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+                className="min-h-11 px-2 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
               >
                 {amount.toLocaleString("ru-RU")} ₽
               </PixelButton>

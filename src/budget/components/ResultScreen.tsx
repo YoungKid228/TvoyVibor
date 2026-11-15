@@ -1,4 +1,5 @@
 import PixelButton from "../../components/PixelButton";
+import Icon from "./Icon";
 import { stats } from "../core/evaluation";
 import { recommendations } from "../core/recommendations";
 import type { GameState } from "../core/types";
@@ -31,16 +32,19 @@ export default function ResultScreen({ state, onRestart, onMenu }: Props) {
             title="Оценка по деньгам"
             value={`${s.finalBalance.toLocaleString("ru-RU")} ₽`}
             grade={s.moneyGrade}
+            iconName="ui/grade-money"
           />
           <GradeCard
             title="Оценка по счастью"
             value={`${s.avgSolomon.toFixed(1)}`}
             grade={s.solomonGrade}
+            iconName="ui/heart-3"
           />
           <GradeCard
             title="Ваше настроение"
             value={`${s.avgMood.toFixed(1)}`}
             grade={s.moodGrade}
+            iconName="ui/heart-2"
           />
         </div>
       </header>
@@ -53,6 +57,18 @@ export default function ResultScreen({ state, onRestart, onMenu }: Props) {
       >
         <h3 className="text-lg font-bold text-stone-900">Проверка расходов</h3>
         <p className="mt-1 text-sm text-stone-700">{s.audit.verdict}</p>
+        {s.audit.violations.length > 0 && (
+          <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-2">
+            <div className="text-xs font-bold text-rose-900">
+              Что требует внимания:
+            </div>
+            <ul className="mt-1 list-disc pl-5 text-xs text-rose-800">
+              {s.audit.violations.map((violation) => (
+                <li key={violation}>{violation}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <ul className="mt-2 grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
           <AuditRow
             ok={s.audit.obligatoryCovered}
@@ -137,18 +153,30 @@ export default function ResultScreen({ state, onRestart, onMenu }: Props) {
   );
 }
 
-function GradeCard({
-  title,
-  value,
-  grade,
-}: {
-  title: string;
-  value: string;
-  grade: string;
-}) {
+function GradeCard(
+  {
+    title,
+    value,
+    grade,
+    iconName,
+  }: {
+    title: string;
+    value: string;
+    grade: string;
+    iconName: string;
+  }
+) {
   return (
-    <div className="rounded-lg border border-stone-300 bg-stone-50 p-3">
-      <div className="text-xs text-stone-500">{title}</div>
+    <div className="rounded-lg border border-stone-300 bg-stone-50 p-3 flex flex-col items-start gap-1">
+      <div className="flex items-center gap-2">
+        <Icon
+          name={iconName}
+          alt={title}
+          size={20}
+          className="flex-shrink-0"
+        />
+        <div className="text-xs text-stone-500">{title}</div>
+      </div>
       <div className="font-mono text-2xl font-bold tabular-nums text-stone-900">
         {value}
       </div>

@@ -67,6 +67,26 @@ export function expenseAudit(state: GameState): ExpenseAudit {
     walletNotEmpty: state.cash > 0,
   };
 
+  // Все нарушения перечисляются, а не только первое: вердикт-заголовок
+  // перекрывал остальные, и игрок не видел, что у него ещё долг и
+  // 90 % необязательных трат.
+  const violations: string[] = [];
+  if (!checks.obligatoryCovered) {
+    violations.push("обязательные расходы не покрыты");
+  }
+  if (!checks.noDebt) {
+    violations.push("есть долг");
+  }
+  if (share > 0.6) {
+    violations.push("доля необязательных трат выше 60 %");
+  }
+  if (!checks.hasSavings) {
+    violations.push("нет финансовой подушки");
+  }
+  if (!checks.walletNotEmpty) {
+    violations.push("кошелёк пуст");
+  }
+
   let verdict: string;
   if (!checks.obligatoryCovered) {
     verdict = "Обязательные расходы не покрыты";
@@ -80,7 +100,7 @@ export function expenseAudit(state: GameState): ExpenseAudit {
     verdict = "Расходы покрыты, но резерв не создан";
   }
 
-  return { ...checks, verdict, byCategory: { ...items } };
+  return { ...checks, verdict, violations, byCategory: { ...items } };
 }
 
 /** Сводные итоги игры. */

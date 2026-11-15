@@ -9,7 +9,14 @@ import {
   spendById,
 } from "../data/scenario";
 import { pay, payFlexible, save, withdraw } from "./finance";
-import { decay, isBurntOut, shiftPay, sleep } from "./mood";
+import {
+  addRep,
+  clampScales,
+  decay,
+  isBurntOut,
+  shiftPay,
+  sleep,
+} from "./mood";
 import { pythonRound } from "./rounding";
 import type {
   GameEvent,
@@ -72,6 +79,7 @@ export function createInitialState(
       hunger: 100,
       hygiene: 100,
       solomon: 70,
+      cleanliness: 100,
     },
     rep: profession.repBonus,
     items: [],
@@ -98,6 +106,12 @@ export function createInitialState(
     pendingEvent: null,
     log: [],
     dayActions: [],
+    sleepsToday: 0,
+    petsToday: 0,
+    washesToday: 0,
+    itemDays: {},
+    dayNotes: [],
+    dayStarted: false,
     finished: false,
   };
 }
@@ -128,15 +142,51 @@ export function jobBlockReason(
   return null;
 }
 
-/** Проверка, доступна ли трата. */
+/**
+ * Проверка, доступна ли трата.
+ *
+ * Долг разрешён: если денег нет нигде, трата проходит в кредит — кошелёк
+ * уходит в минус, настроение падает, а финальный разбор показывает, что
+ * игрок перестал считать. Правило живёт в ядре (`buy()`), а не здесь:
+ * раньше блокировка стояла только в интерфейсе, и любой путь в обход
+ * перерисовки кнопок позволял траты в долг без предупреждения.
+ *
+ * Здесь же проверяется единственное ограничение бесплатного действия:
+ * «поглаживание Соломона» — не чаше N раз в день.
+ */
 export function spendBlockReason(
   state: GameState,
   spendId: SpendId,
 ): string | null {
   const spend = spendById(spendId);
   if (!spend) return "нет такой траты";
-  if (state.cash < 0 && spend.cost > 0) return "кошелёк в минусе";
+  if (spendId === "pet" && state.petsToday >= RULES.petPerDay) {
+    return `поглаживаний на сегодня хватает (${RULES.petPerDay})`;
+  }
+  if (spendId === "wash" && state.washesToday >= RULES.washPerDay) {
+    return `мытьё на сегодня уже было (${RULES.washPerDay})`;
+  }
   return null;
+}
+
+/** Проверка, доступен ли сон. */
+export function restBlockReason(state: GameState): string | null {
+  if (state.sleepsToday >= RULES.sleepPerDay) {
+    return "сон уже был сегодня";
+  }
+  return null;
+}
+
+/**
+ * Уйдёт ли трата в долг.
+ *
+ * Показывается в карточке траты: игрок должен видеть долг до покупки,
+ * а не после — тогда долг остаётся осознанным решением.
+ */
+export function goesIntoDebt(state: GameState, spendId: SpendId): boolean {
+  const spend = spendById(spendId);
+  if (!spend || spend.cost === 0) return false;
+  return state.cash < spend.cost && state.savings < spend.cost - state.cash;
 }
 
 /* ------------------------------------------------------------------ */
@@ -161,6 +211,11 @@ export function work(state: GameState, jobId: JobId): string {
   }
   if (state.scales.energy < job.energyCost) return "нет энергии";
 
+  // Шкалы приводятся в диапазон ДО расчёта дохода: иначе множитель
+  // посчитался бы от значения выше 100 и смена принесла бы больше базовой
+  // ставки (при настроении 150 курьер давал 2 000 ₽ вместо 1 600).
+  clampScales(state);
+
   const burnt = isBurntOut(state.scales.mood);
   const gain = shiftPay(job.pay, state.scales.mood);
   state.cash += gain;
@@ -170,6 +225,7 @@ export function work(state: GameState, jobId: JobId): string {
     0,
     state.scales.mood - job.moodCost * (burnt ? 2 : 1),
   );
+  clampScales(state);
   const key = weekJobKey(state.week, jobId);
   state.weekJobs[key] = (state.weekJobs[key] ?? 0) + 1;
   state.weekShifts[state.week] = (state.weekShifts[state.week] ?? 0) + 1;
@@ -181,6 +237,22 @@ export function work(state: GameState, jobId: JobId): string {
 export function buy(state: GameState, spendId: SpendId): string {
   const spend = spendById(spendId);
   if (!spend) return "нет такой траты";
+  // Поглаживание Соломона — бесплатное действие, поэтому у него суточный
+  // лимит. Иначе 50 кликов набивают шкалы и обесценивают всю экономику.
+  if (spendId === "pet") {
+    if (state.petsToday >= RULES.petPerDay) {
+      return "поглаживаний на сегодня хватает";
+    }
+    state.petsToday += 1;
+  }
+  // Мытьё Соломона — тоже суточное действие: иначе игрок вымывал бы его
+  // по десять раз за день ради одного и того же настроения.
+  if (spendId === "wash") {
+    if (state.washesToday >= RULES.washPerDay) {
+      return "мытьё на сегодня уже было";
+    }
+    state.washesToday += 1;
+  }
   const category = categoryForSpend(spendId);
   const paid = payFlexible(state, spend.cost, category);
   state.scales.mood += spend.moodGain;
@@ -190,11 +262,16 @@ export function buy(state: GameState, spendId: SpendId): string {
     100,
     state.scales.hygiene + spend.hygieneGain,
   );
-  state.rep += spend.repGain;
+  addRep(state, spend.repGain);
   state.scales.solomon = Math.min(
     100,
     state.scales.solomon + spend.solomonGain,
   );
+  if (spendId === "wash") {
+    // Мытьё возвращает блеск: спрайт снова становится чистым.
+    state.scales.cleanliness = 100;
+  }
+  clampScales(state);
   return `${spendId} ${paid}`;
 }
 
@@ -205,6 +282,7 @@ export function buyItem(state: GameState, itemId: ItemId): string {
   if (state.items.includes(itemId)) return "уже куплено";
   payFlexible(state, item.cost, "покупки");
   state.items.push(itemId);
+  state.itemDays[itemId] = state.day;
   return `${itemId} -${item.cost}`;
 }
 
@@ -229,7 +307,8 @@ export function takeFromSavings(state: GameState, amount: number): string {
 
 /**
  * Выбрать вариант открытого события.
- * После закрытия события дневной цикл продолжается со следующей фазы.
+ * После закрытия события дневной цикл продолжается со следующей фазы —
+ * день события остаётся обычным днём, просто с дополнительным выбором.
  */
 export function resolveEvent(state: GameState, optionId: string): string {
   const event = state.pendingEvent;
@@ -250,7 +329,7 @@ export function resolveEvent(state: GameState, optionId: string): string {
     payFlexible(state, option.cost, "подарки");
     state.scales.mood += option.moodGain;
     state.scales.solomon += option.solomonGain ?? 0;
-    state.rep += 1;
+    addRep(state, 1);
     state.giftResolved = true;
     label = `подарок:${optionId} -${option.cost}`;
   } else {
@@ -281,6 +360,11 @@ export function resolveEvent(state: GameState, optionId: string): string {
     }
   }
 
+  clampScales(state);
+  // Событие — часть дня, поэтому его подпись попадает в журнал дня.
+  // Порядок важен: событие открывается до действий игрока, значит и в
+  // журнале оно стоит первым (так же, как в эталоне).
+  state.dayActions.push(label);
   state.pendingEvent = null;
   // Событие закрыто — дневной цикл продолжается со следующей фазы.
   advance(state);
@@ -357,7 +441,7 @@ export function advance(state: GameState): string[] {
         break;
       }
       case "decay": {
-        decay(state);
+        state.dayNotes = decay(state);
         state.phase = "actions";
         break;
       }
@@ -373,15 +457,37 @@ export function advance(state: GameState): string[] {
   }
 }
 
-/** Начать новый день. */
+/**
+ * Начать новый день.
+ *
+ * `startDay()` вызывается только один раз на день: повторный вызов сдвинул бы
+ * день заново (списал бы обязательные расходы дважды и сбросил спад шкал).
+ * Поэтому день помечается флагом `dayStarted`, а повторный вызов — no-op.
+ */
 export function startDay(state: GameState): string[] {
+  if (state.dayStarted) return state.dayActions;
+  // День помечается начатым сразу: иначе перезагрузка страницы во время
+  // события перезапустила бы дневной цикл и списала обязательные расходы
+  // второй раз.
+  state.dayStarted = true;
   state.week = Math.floor((state.day - 1) / 7);
   state.dayActions = [];
+  // Суточные счётчики бесплатных действий обнуляются каждый день.
+  state.sleepsToday = 0;
+  state.petsToday = 0;
+  state.washesToday = 0;
   state.phase = "blizzard";
   return advance(state);
 }
 
-/** Завершить день: записать в журнал и перейти к следующему. */
+/**
+ * Завершить день: записать в журнал и перейти к следующему.
+ *
+ * `dayActions` очищается здесь, а не только в `startDay()`: иначе после
+ * перезагрузки страницы (когда `startDay()` не вызывается) действия
+ * прошлого дня переезжают в журнал текущего, а сам день не начинается —
+ * не спадают шкалы и не списываются расходы.
+ */
 export function endDay(state: GameState, actions: string[]): void {
   state.log.push({
     day: state.day,
@@ -392,15 +498,59 @@ export function endDay(state: GameState, actions: string[]): void {
     solomon: pythonRound(state.scales.solomon, 1),
     hunger: state.scales.hunger,
     hygiene: state.scales.hygiene,
+    cleanliness: state.scales.cleanliness,
     actions,
+    notes: state.dayNotes,
   });
 
   const scenario = SCENARIOS[state.scenarioKey];
+  state.dayActions = [];
+  state.dayNotes = [];
+  state.dayStarted = false;
   if (state.day >= scenario.days) {
     state.finished = true;
     return;
   }
   state.day += 1;
+}
+
+/**
+ * Нормализовать загруженное состояние.
+ *
+ * Сохранение может быть сделано в любой момент, поэтому при загрузке
+ * приводим состояние к консистентному виду.
+ *
+ * Важно: действия и счётчики **текущего** дня сохраняются — иначе
+ * перезагрузка обнуляла бы суточные лимиты (например, можно было бы
+ * погладить Соломона ещё раз) и теряла часть журнала дня. Обнуляется
+ * только «хвост» от прошлого дня — состояние, в котором день не начат.
+ */
+export function normalizeState(state: GameState): GameState {
+  const dayStarted = Boolean(state.dayStarted);
+  return {
+    ...state,
+    dayStarted,
+    dayActions: dayStarted ? state.dayActions : [],
+    dayNotes: state.dayNotes ?? [],
+    sleepsToday: state.sleepsToday ?? 0,
+    petsToday: state.petsToday ?? 0,
+    washesToday: state.washesToday ?? 0,
+    itemDays: state.itemDays ?? {},
+    // Шкалы приводятся в диапазон: сохранение могло быть сделано старой
+    // версией игры, где обрезки в ядре не было.
+    scales: {
+      mood: Math.max(0, Math.min(100, state.scales.mood)),
+      energy: Math.max(0, Math.min(100, state.scales.energy)),
+      hunger: Math.max(0, Math.min(100, state.scales.hunger)),
+      hygiene: Math.max(0, Math.min(100, state.scales.hygiene)),
+      solomon: Math.max(0, Math.min(100, state.scales.solomon)),
+      cleanliness: Math.max(
+        0,
+        Math.min(100, state.scales.cleanliness ?? 100),
+      ),
+    },
+    rep: Math.max(0, Math.min(RULES.repCap, state.rep)),
+  };
 }
 
 /**
@@ -419,7 +569,7 @@ export function runScenario(
     startDay(state);
     // Снегопад в эталоне происходит автоматически (выбор задан заранее).
     // События «телефон» и «подарок» решает сама стратегия — как в эталоне,
-    // где policy в эти дни прерывается и не делает других действий.
+    // где policy в эти дни закрывает событие и продолжает обычный день.
     if (state.pendingEvent?.id === "blizzard") {
       resolveEvent(state, eventChoice(state.pendingEvent));
     }

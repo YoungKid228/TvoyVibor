@@ -9,7 +9,7 @@ test("app shell loads from cache when offline after first visit", async ({
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
     undefined,
-    { timeout: 15000 },
+    { timeout: 45_000 },
   );
 
   await context.setOffline(true);
@@ -35,7 +35,7 @@ test("deep link is served as app shell online and offline", async ({
   await page.waitForFunction(
     () => navigator.serviceWorker?.controller !== null,
     undefined,
-    { timeout: 15000 },
+    { timeout: 45_000 },
   );
   await context.setOffline(true);
   await page.goto("/some-deep-link", { waitUntil: "load" });

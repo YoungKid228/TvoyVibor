@@ -8,3 +8,4 @@ playwright-report
 .playwright-mcp
 tmp-serve.mjs
 *.log
+__pycache__

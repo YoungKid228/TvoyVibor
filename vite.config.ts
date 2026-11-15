@@ -14,6 +14,18 @@ export default defineConfig({
   // Базовый путь приложения. Для GitHub Pages сборка идёт в подпапку
   // /<имя-репозитория>/, поэтому путь задаётся переменной окружения.
   base: BASE_PATH,
+  // Хост и порт фиксированы, чтобы адрес локальной проверки не менялся:
+  // dev — http://127.0.0.1:5173, preview — http://127.0.0.1:4173
+  server: {
+    host: "127.0.0.1",
+    port: 5173,
+    strictPort: true,
+  },
+  preview: {
+    host: "127.0.0.1",
+    port: 4173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -24,6 +36,12 @@ export default defineConfig({
       /* Шрифт и gif должны кэшироваться для офлайн-запуска */
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,ttf,woff,woff2,gif,webp,png}"],
+        /**
+         * Фоны локаций — готовые PNG по 2…2.5 МБ, они не помещаются в
+         * стандартные 2 МБ и выпадали бы из офлайн-кэша. Поднимаем порог:
+         * без фонов сцена не работает офлайн вообще.
+         */
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         /* Фото клуба и галереи ПГУ — отдельно от precache, кэшируются при первом просмотре */
         runtimeCaching: [
           {

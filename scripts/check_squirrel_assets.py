@@ -9,11 +9,13 @@ import zlib
 from collections import Counter
 
 
-def load_rgba(path):
+def load_rgba(path: str) -> tuple[int, int, bytearray]:
     data = open(path, "rb").read()
     pos = 8
     idat = b""
-    w = h = ct = None
+    w: int = 0
+    h: int = 0
+    ct: int = 0
     palette = b""
     trns = b""
     while pos < len(data):
@@ -120,33 +122,87 @@ def check(path):
     w, h, buf = load_rgba(path)
     alpha = Counter()
     opaque = Counter()
+    min_x, min_y, max_x, max_y = w, h, -1, -1
     for y in range(h):
+        row = y * w
         for x in range(w):
-            i = (y * w + x) * 4
+            i = (row + x) * 4
             a = buf[i + 3]
             alpha[a] += 1
+            if a > 0:
+                if x < min_x:
+                    min_x = x
+                if x > max_x:
+                    max_x = x
+                if y < min_y:
+                    min_y = y
+                if y > max_y:
+                    max_y = y
             if a > 200:
                 opaque[(buf[i], buf[i + 1], buf[i + 2])] += 1
     transparent = alpha.get(0, 0)
     partial = sum(v for k, v in alpha.items() if 0 < k < 255)
     total = w * h
     top = opaque.most_common(3)
-    return w, h, transparent, partial, total, top
+    box = (min_x, min_y, max_x + 1, max_y + 1) if max_x >= 0 else None
+    return w, h, transparent, partial, total, top, box
+
+
+# Подготовленные спрайты: `scripts/prepare_assets.py` кладёт их на общий
+# холст 300×340 и выравнивает ноги по одной линии. Проверяем именно их:
+# исходники в `src/assets/squirrel/` — это большие полотна, они в игру не
+# попадают напрямую.
+CANVAS = (300, 340)
+SPRITES_DIR = os.path.join("src", "assets", "squirrel", "sprites")
+RAW_DIR = os.path.join("src", "assets", "squirrel")
+
+
+def check_raw_sources():
+    """Исходный арт: 27 поз с загрязнением + старая поза 3 + пояснение."""
+    problems = []
+    raw = sorted(glob.glob(os.path.join(RAW_DIR, "pose-*_*.png")))
+    if len(raw) != 27:
+        problems.append(f"исходных поз с загрязнением должно быть 27, а найдено {len(raw)}")
+    # Пояснение к названиям файлов обязано лежать рядом с артом.
+    if not os.path.exists(os.path.join(RAW_DIR, "пояснялка по поводу имён.md")):
+        problems.append("нет файла «пояснялка по поводу имён.md»")
+    return problems
 
 
 if __name__ == "__main__":
-    pattern = os.path.join("src", "assets", "squirrel", "pose-*.png")
-    files = sorted(glob.glob(pattern))
+    files = sorted(glob.glob(os.path.join(SPRITES_DIR, "pose-*.png")))
     if not files:
-        raise SystemExit("позы не найдены")
-    print(f"проверка {len(files)} ассетов")
+        raise SystemExit("подготовленные спрайты не найдены — запусти scripts/prepare_assets.py")
+    print(f"проверка {len(files)} подготовленных спрайтов")
     ok = True
+    for problem in check_raw_sources():
+        ok = False
+        print(f"  ПРОБЛЕМА: {problem}")
+
+    bottoms = set()
     for f in files:
-        w, h, tr, part, total, top = check(f)
+        w, h, tr, part, total, top, box = check(f)
         share = tr / total
-        status = "OK" if share > 0.2 and part < total * 0.2 else "ПРОБЛЕМА"
-        if status != "OK":
+        bottom = box[3] if box else -1
+        bottoms.add(bottom)
+        problems = []
+        if (w, h) != CANVAS:
+            problems.append(f"размер {w}×{h}, ожидался {CANVAS[0]}×{CANVAS[1]}")
+        if share < 0.3:
+            problems.append(f"фон не прозрачный: прозрачно только {share:.0%}")
+        if box is None:
+            problems.append("пустой спрайт")
+        if problems:
             ok = False
         print(f"  {os.path.basename(f)} {w}x{h} прозрачно {share:.0%}, "
-              f"полупрозрачно {part}, топ: {top}")
+              f"низ персонажа {bottom}, {'; '.join(problems) if problems else 'OK'}")
+
+    # Все позы должны стоять на одной линии: иначе при смене варианта
+    # загрязнения персонаж «прыгает» по экрану.
+    if len(bottoms) > 1:
+        ok = False
+        print(f"  ПРОБЛЕМА: ноги поз стоят на разных линиях: {sorted(bottoms)}")
+    else:
+        print(f"  ноги всех поз на одной линии: {bottoms.pop()}")
     print("ИТОГ:", "все ассеты корректны" if ok else "есть проблемы")
+    raise SystemExit(0 if ok else 1)

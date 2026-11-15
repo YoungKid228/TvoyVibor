@@ -4,7 +4,10 @@ import {
   buyItem,
   createInitialState,
   endDay,
+  goesIntoDebt,
+  normalizeState,
   resolveEvent,
+  spendBlockReason,
   startDay,
   work,
 } from "../../src/budget/core/reducer";
@@ -69,13 +72,16 @@ describe("редьюсер: идемпотентность", () => {
   });
 
   it("счётчик смен обнуляется на новой неделе", () => {
-    const g = createInitialState();
+    // Длинный режим: в коротком 7 дней — это вся игра, второй недели нет.
+    const g = createInitialState("long");
     startDay(g);
     g.scales.energy = 100;
     work(g, "courier");
     expect(g.weekShifts[0]).toBe(1);
-    // Переходим на вторую неделю.
-    g.day = 8;
+    // Переходим на вторую неделю — как в игре: день завершается, затем
+    // начинается следующий.
+    g.day = 7;
+    endDay(g, g.dayActions);
     startDay(g);
     expect(g.week).toBe(1);
     expect(g.weekShifts[1]).toBeUndefined();
@@ -186,6 +192,128 @@ describe("редьюсер: дневной цикл", () => {
     endDay(g, g.dayActions);
     expect(g.log).toHaveLength(1);
     expect(g.log[0].day).toBe(1);
+  });
+});
+
+describe("редьюсер: действия не переезжают в следующий день", () => {
+  it("endDay очищает dayActions", () => {
+    const g = createInitialState();
+    startDay(g);
+    expect(g.dayActions.length).toBeGreaterThan(0); // обязательные расходы
+    endDay(g, g.dayActions);
+    expect(g.dayActions).toHaveLength(0);
+  });
+
+  it("повторный startDay не перезапускает день", () => {
+    const g = createInitialState();
+    startDay(g);
+    const cash = g.cash;
+    const dayActions = g.dayActions.length;
+    // Повторный вызов не должен снова списать обязательные расходы.
+    startDay(g);
+    expect(g.cash).toBe(cash);
+    expect(g.dayActions.length).toBe(dayActions);
+    expect(g.spentByCategory["обязательные"]).toBe(12500);
+  });
+
+  it("перезагрузка в середине дня не сбрасывает лимиты дня", () => {
+    const g = createInitialState();
+    startDay(g);
+    buy(g, "pet");
+    buy(g, "pet");
+    // Имитируем сохранение и загрузку в середине дня.
+    const reloaded = normalizeState({ ...g });
+    expect(reloaded.petsToday).toBe(2);
+    expect(reloaded.sleepsToday).toBe(g.sleepsToday);
+    // Счётчик сохранился — третий раз погладить уже нельзя.
+    expect(buy(reloaded, "pet")).toContain("pet");
+    expect(buy(reloaded, "pet")).toBe("поглаживаний на сегодня хватает");
+  });
+
+  it("после перезагрузки состояние нормализуется", () => {
+    const g = createInitialState();
+    startDay(g);
+    // Имитируем «хвост» от прошлого дня: день не начат.
+    const saved = { ...g, dayStarted: false, dayActions: ["обязательные -12500"] };
+    const normalized = normalizeState(saved);
+    expect(normalized.dayActions).toHaveLength(0);
+    expect(normalized.sleepsToday).toBe(0);
+    expect(normalized.petsToday).toBe(0);
+  });
+
+  it("шкалы из старого сохранения приводятся в 0…100", () => {
+    const g = createInitialState();
+    startDay(g);
+    const saved = {
+      ...g,
+      scales: { ...g.scales, mood: 150, solomon: 120 },
+    };
+    const normalized = normalizeState(saved);
+    expect(normalized.scales.mood).toBe(100);
+    expect(normalized.scales.solomon).toBe(100);
+  });
+});
+
+describe("редьюсер: правило долга (вариант А)", () => {
+  it("трата в долг проходит — долг разрешён", () => {
+    const g = createInitialState();
+    startDay(g);
+    g.cash = 100;
+    g.savings = 0;
+    buy(g, "clothes");
+    expect(g.cash).toBeLessThan(0);
+    expect(g.debt).toBe(3000);
+  });
+
+  it("интерфейс не блокирует траты при минусе", () => {
+    const g = createInitialState();
+    startDay(g);
+    g.cash = -100;
+    expect(spendBlockReason(g, "kino")).toBeNull();
+  });
+
+  it("карточка траты предупреждает, что уйдёт в долг", () => {
+    const g = createInitialState();
+    startDay(g);
+    g.cash = 100;
+    g.savings = 0;
+    // Одежда стоит 3 000 ₽ — денег заведомо не хватит.
+    expect(goesIntoDebt(g, "clothes")).toBe(true);
+    // Кофе стоит 150 ₽, в кошельке 200 ₽ — хватит.
+    g.cash = 200;
+    expect(goesIntoDebt(g, "coffee")).toBe(false);
+  });
+
+  it("разбор перечисляет все нарушения, а не только первое", () => {
+    const g = createInitialState();
+    g.spentByCategory["обязательные"] = 0;
+    g.cash = -100;
+    const audit = expenseAudit(g);
+    expect(audit.violations.length).toBeGreaterThan(1);
+    expect(audit.violations).toContain("обязательные расходы не покрыты");
+    expect(audit.violations).toContain("есть долг");
+  });
+});
+
+describe("редьюсер: день события — обычный день", () => {
+  it("после закрытия события можно продолжать действовать", () => {
+    const g = createInitialState();
+    g.day = 5;
+    startDay(g);
+    expect(g.pendingEvent?.id).toBe("phone");
+    resolveEvent(g, "repair");
+    expect(g.pendingEvent).toBeNull();
+    // День не закончился: можно работать.
+    g.scales.energy = 100;
+    expect(work(g, "dishes")).toContain("dishes");
+  });
+
+  it("подпись события попадает в журнал дня", () => {
+    const g = createInitialState();
+    g.day = 5;
+    startDay(g);
+    resolveEvent(g, "repair");
+    expect(g.dayActions.join("; ")).toContain("телефон");
   });
 });
 

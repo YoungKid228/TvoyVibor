@@ -1,4 +1,4 @@
-"""Баланс-симулятор «Белка Соломон» v3 — Talking Tom-подобный цикл в экономике.
+"""Баланс-симулятор «Белка Соломон» v4 — Talking Tom-подобный цикл в экономике.
 
 Запуск:  python scripts/balance_sim.py
 Назначение: воспроизводимый расчёт контрольных примеров из
@@ -11,12 +11,17 @@ docs/Хермес-вариант.md. Код игры в src/budget/ повтор
 Ключевые решения модели:
   * Белка живёт своей жизнью: настроение белки падает каждый день (скука без
     ухода) и растёт от ухода (поглаживание, игрушка, совместные развлечения).
-    Несчастный хозяин (настроение < 30) запускает белку ещё сильнее.
+    Несчастливый хозяин (настроение < 30) запускает белку ещё сильнее.
   * Деньги и счастье — две независимые оси, конкурирующие за время игрока:
     не больше 4 смен за неделю.
   * Отрицательный кошелёк разрешён: рискованные покупки можно взять в долг
     (кошелёк уходит в минус, настроение падает). Зато итоговая проверка
     расходов покажет, что игрок «попал в минус».
+  * Все шкалы ограничены диапазоном 0…100 в любой момент игры — не только
+    при отрисовке. Иначе шкала «уезжает» за потолок, а доход считается от
+    неправильного значения (аудит от 30 октября 2026, проблема 1).
+  * Бесплатных действий «только в плюс» нет: сон — не чаще раза в день,
+    поглаживание Соломона — не чаще трёх раз в день. Счётчики суточные.
 """
 
 from dataclasses import dataclass
@@ -41,6 +46,7 @@ class Scenario:
     hygiene_decay: int = 5
     solomon_decay: int = 4
     blizzard_day: int = 0      # день локального события «снегопад» (0 — нет)
+    cleanliness_decay: int = 15  # насколько сильно Соломон пачкается за день
 
 
 SHORT = Scenario(
@@ -91,6 +97,25 @@ GLOOMY_OWNER_MOOD = 30      # ниже — хозяин запускает бе�
 SOLOMON_HAPPY = 60              # порог «Соломон доволен» для итогового вердикта
 CREDIT_MOOD_PENALTY = 5     # штраф настроения за покупку в долг
 
+# Суточные лимиты бесплатных действий. Без них энергия становится
+# неограниченным ресурсом, а шкалы набиваются кликами (аудит, проблемы 2–3).
+SLEEP_PER_DAY = 1         # сон
+PET_PER_DAY = 3           # поглаживание Соломона
+WASH_PER_DAY = 1          # мытьё Соломона
+
+# Пороги загрязнения Соломона. Чистота — шкала 0…100, где 100 это «только что
+# вымыт». Варианты спрайта: 0 — чистый, 1 — слегка грязный, 2 — сильно грязный.
+# Границы подобраны так, чтобы «слегка грязный» держался примерно два дня
+# без мытья, а «сильно грязный» — с пятого.
+CLEAN_AT = 67             # чистота ≥ 67 → спрайт «чистый»
+DIRTY_AT = 33             # чистота ≤ 33 → спрайт «сильно грязный»
+
+# Потолок репутации: выше 5 репутация ничего не даёт.
+REP_CAP = 5
+
+# Срок абонемента в зал: 14 дней с момента покупки.
+GYM_DAYS = 14
+
 # заработки: база ₽/смена, энергия, настроение, условие, лимит смен в неделю
 JOBS = {
     "dishes":    (600, 12, 4, None, 4),
@@ -125,6 +150,7 @@ SPEND = {
     "amulet":    (600, 5, 0, 0, 0, 0, 2),       # талесман со звездой Давида
     "festival":  (1800, 9, 10, 0, 0, 1, 3),     # фестиваль еврейской культуры
     "zoo":       (400, 4, 5, 0, 0, 0, 1),       # амурский тигр в зоопарке
+    "wash":      (200, 1, 0, 0, 0, 0, 2),       # вымыть Соломона — 200 ₽
 }
 
 # крупные покупки: ₽, эффект
@@ -139,7 +165,7 @@ PROFESSIONS = {
     "none":     {"label": "Без профессии", "rep": 0, "shifts": 0, "mood": 0, "salary": 0},
     "student":  {"label": "Студент", "rep": 2, "shifts": 0, "mood": 0, "salary": 0},
     "courier":  {"label": "Курьер", "rep": 0, "shifts": 1, "mood": 0, "salary": 0},
-    "engineer": {"label": "Инженер", "rep": 0, "shifts": 0, "mood": 5, "salary": 0},
+    "engineer": {"label": "Инженер", "rep": 0, "shifts": 0, "mood": 5, "salary": 150},
     "creative": {"label": "Творческий", "rep": 0, "shifts": 0, "mood": 0, "salary": 500},
 }
 
@@ -166,8 +192,12 @@ class Game:
         self.hunger = 100
         self.hygiene = 100
         self.solomon = 70
+        # Чистота Соломона: 100 — только что вымыт, 0 — грязный.
+        self.cleanliness = 100
         self.rep = self.profession["rep"]
         self.items: set[str] = set()
+        # День покупки каждой крупной вещи — чтобы абонемент имел срок.
+        self.item_days: dict[str, int] = {}
         self.income = 0
         self.expenses = 0
         self.shifts = 0
@@ -178,6 +208,10 @@ class Game:
         self.blizzard_choice = "bus"
         self.week_jobs: dict[tuple[int, str], int] = {}
         self.log: list[tuple] = []
+        # Суточные счётчики бесплатных действий.
+        self.sleeps_today = 0
+        self.pets_today = 0
+        self.washes_today = 0
         self.spent_by_category = {
             "обязательные": 0,
             "быт": 0,
@@ -187,6 +221,33 @@ class Game:
             "телефон": 0,
             "накопления": 0,
         }
+
+    # --- шкалы ----------------------------------------------------------
+    def clamp(self) -> None:
+        """Обрезать все шкалы в 0…100.
+
+        Обрезка живёт в ядре, а не только при отрисовке: пока шкала может
+        уйти за потолок, доход считается от неверного значения, а игрок видит
+        одно число, а модель — другое.
+        """
+        self.mood = max(0, min(100, self.mood))
+        self.energy = max(0, min(100, self.energy))
+        self.hunger = max(0, min(100, self.hunger))
+        self.hygiene = max(0, min(100, self.hygiene))
+        self.solomon = max(0, min(100, self.solomon))
+        self.cleanliness = max(0, min(100, self.cleanliness))
+
+    def dirt_variant(self) -> int:
+        """Вариант спрайта Соломона по загрязнению: 0 чистый, 1 слегка, 2 сильно."""
+        if self.cleanliness >= CLEAN_AT:
+            return 0
+        if self.cleanliness > DIRTY_AT:
+            return 1
+        return 2
+
+    def add_rep(self, amount: int) -> None:
+        """Добавить репутацию с учётом потолка."""
+        self.rep = max(0, min(REP_CAP, self.rep + amount))
 
     # --- деньги ----------------------------------------------------------
     def can_pay(self, amount: int) -> bool:
@@ -249,6 +310,10 @@ class Game:
             return "лимит смен"
         if self.energy < energy_cost:
             return "нет энергии"
+        # Шкалы приводятся в диапазон ДО расчёта дохода: иначе множитель
+        # посчитался бы от значения выше 100 и смена принесла бы больше
+        # базовой ставки (при настроении 150 курьер давал 2 000 ₽ вместо 1 600).
+        self.clamp()
         # Выгорание: смена оплачивается хуже и выжигает сильнее, но не обнуляется —
         # иначе «трудяга» зарабатывал бы меньше «балансного» игрока.
         burnt = self.mood < BURNOUT_MOOD
@@ -261,12 +326,24 @@ class Game:
         self.week_jobs[(self.current_week, key)] = self.week_jobs.get((self.current_week, key), 0) + 1
         self.week_shifts[self.current_week] = self.week_shifts.get(self.current_week, 0) + 1
         self.shifts += 1
+        self.clamp()
         return f"{key} +{gain}" + (" (выгорание)" if burnt else "")
 
     def buy(self, key: str) -> str:
-        """Обычная трата. Если денег нет — покупка недоступна (кроме рисковых)."""
+        """Обычная трата. Если денег нет — покупку можно взять в долг."""
         cost, mood_d, energy_d, food_d, hyg_d, rep_d, solomon_d = SPEND[key]
         category = "развлечения" if key in ("kino", "cafe", "bowling", "park", "clothes", "toyshop") else "быт"
+        # Поглаживание Соломона — бесплатное действие, поэтому у него суточный лимит.
+        if key == "pet":
+            if self.pets_today >= PET_PER_DAY:
+                return "поглаживаний на сегодня хватает"
+            self.pets_today += 1
+        # Мытьё Соломона — тоже суточное действие: иначе игрок вымывал бы его
+        # по десять раз за день ради одного и того же настроения.
+        if key == "wash":
+            if self.washes_today >= WASH_PER_DAY:
+                return "мытьё на сегодня уже было"
+            self.washes_today += 1
         if self.can_pay(cost):
             paid = self.pay(cost, category)
         else:
@@ -277,13 +354,22 @@ class Game:
         self.energy = max(0, self.energy - energy_d)
         self.hunger = min(100, self.hunger + food_d)
         self.hygiene = min(100, self.hygiene + hyg_d)
-        self.rep += rep_d
+        self.add_rep(rep_d)
         self.solomon = min(100, self.solomon + solomon_d)
+        if key == "wash":
+            # Мытьё возвращает блеск: спрайт снова становится чистым.
+            self.cleanliness = 100
+        self.clamp()
         return f"{key} {paid}"
 
     def sleep(self) -> str:
+        """Сон. Не чаще раза в день: иначе энергия не ограничена ничем."""
+        if self.sleeps_today >= SLEEP_PER_DAY:
+            return "сон уже был сегодня"
+        self.sleeps_today += 1
         self.energy = min(100, self.energy + 45)
         self.mood = min(100, self.mood + SLEEP_MOOD)
+        self.clamp()
         return "сон"
 
     def buy_item(self, key: str) -> str:
@@ -293,6 +379,7 @@ class Game:
         else:
             self.pay_on_credit(cost, "покупки")
         self.items.add(key)
+        self.item_days[key] = self.current_day
         return f"{key} -{cost}"
 
     def phone(self, choice: str) -> str:
@@ -303,6 +390,7 @@ class Game:
             self.pay_on_credit(cost, "телефон")
         self.mood += {"repair": 3, "new": 6, "old": -6}[choice]
         self.solomon += {"repair": 1, "new": 3, "old": -4}[choice]
+        self.clamp()
         return f"телефон:{choice} -{cost}"
 
     def gift(self, choice: str) -> str:
@@ -313,37 +401,60 @@ class Game:
             self.pay_on_credit(cost, "подарки")
         self.mood += mood_d
         self.solomon += solomon_d
-        self.rep += 1
+        self.add_rep(1)
+        self.clamp()
         return f"подарок:{choice} -{cost}"
 
     # --- дневной цикл ----------------------------------------------------
-    def decay(self) -> None:
-        """Ежедневные расходы шкал."""
+    def decay(self) -> list[str]:
+        """Ежедневные расходы шкал. Возвращает список причин изменения."""
         sc = self.scenario
+        notes: list[str] = []
         self.hunger = max(0, self.hunger - sc.hunger_decay)
         self.hygiene = max(0, self.hygiene - (sc.hygiene_decay if "washer" not in self.items
                                              else sc.hygiene_decay // 2))
         self.mood -= BORING
+        notes.append(f"настроение −{BORING}: скука")
         if self.hunger == 0:
             self.mood -= 5
+            notes.append("настроение −5: голод")
         if self.hygiene == 0:
             self.mood -= 3
+            notes.append("настроение −3: грязь")
         if self.cash < 0:
             self.mood -= 3
+            notes.append("настроение −3: долг")
         if self.savings >= 4000:
             self.mood += SAVE_BONUS
-        if "gym" in self.items:
+            notes.append("настроение +1: подушка 4 000 ₽")
+        if self.gym_active():
             self.mood += 1
-        # Соломон скучает без ухода, а несчастный хозяин запускает его ещё сильнее.
-        self.solomon -= sc.solomon_decay
+            notes.append("настроение +1: абонемент в зал")
+        # Соломон скучает без ухода, а несчастливый хозяин запускает его ещё сильнее.
+        # Грязный Соломон скучает сильнее: спрайт пачкается, и это видно игроку.
+        self.cleanliness = max(0, self.cleanliness - sc.cleanliness_decay)
+        dirt = self.dirt_variant()
+        self.solomon -= sc.solomon_decay + dirt
+        if dirt:
+            notes.append(f"Соломон −{dirt}: грязный")
         if self.mood < GLOOMY_OWNER_MOOD:
             self.solomon -= 2
+            notes.append("Соломон −2: хозяин несчастен")
         if self.solomon >= 60:
             self.mood += SOLOMON_UP
+            notes.append("настроение +1: довольный Соломон")
         elif self.solomon <= 25:
             self.mood += SOLOMON_DOWN
-        self.solomon = max(0, min(100, self.solomon))
-        self.mood = max(0, min(100, self.mood))
+            notes.append("настроение −3: Соломон грустит")
+        self.clamp()
+        return notes
+
+    def gym_active(self) -> bool:
+        """Действует ли абонемент в зал (14 дней с покупки)."""
+        if "gym" not in self.items:
+            return False
+        bought = self.item_days.get("gym", self.current_day)
+        return self.current_day - bought < GYM_DAYS
 
     def blizzard(self) -> str:
         """Снегопад парализует город: транспорт дорожает, но и время уходит.
@@ -356,12 +467,15 @@ class Game:
                 return "снегопад: такси недоступно"
             self.pay(400, "быт")
             self.mood = max(0, self.mood - 2)
+            self.clamp()
             return "снегопад: такси -400"
         if self.blizzard_choice == "bus":
             self.mood = max(0, self.mood - 1)
+            self.clamp()
             return "снегопад: автобус, бесплатно, но долго"
         self.energy = max(0, self.energy - 15)
         self.mood = max(0, self.mood - 3)
+        self.clamp()
         return "снегопад: пешком, -15 энергии"
 
     def day_events(self, day: int) -> list[str]:
@@ -387,16 +501,21 @@ class Game:
         for day in range(1, self.scenario.days + 1):
             self.current_day = day
             self.current_week = (day - 1) // 7
+            # Суточные счётчики бесплатных действий обнуляются каждый день.
+            self.sleeps_today = 0
+            self.pets_today = 0
+            self.washes_today = 0
             acts = self.day_events(day)
-            self.decay()
+            notes = self.decay()
             acts += policy(day, self)
             self.log.append((day, self.cash, self.savings, self.mood, self.energy,
                              round(self.solomon, 1), self.hunger, self.hygiene,
-                             "; ".join(acts)))
+                             "; ".join(acts), notes, self.cleanliness))
         return self
 
 
-FAIL_PREFIXES = ("нет ", "недельный", "выгорание", "лимит", "мало ", "смен нет")
+FAIL_PREFIXES = ("нет ", "недельный", "выгорание", "лимит", "мало ", "смен нет",
+                 "поглаживаний на сегодня", "сон уже был", "мытьё на сегодня")
 
 
 def try_jobs(g, order):
@@ -413,14 +532,21 @@ def try_jobs(g, order):
 
 
 # --- стратегии (крайние профили поведения) ------------------------------
+#
+# День события — обычный день: сначала игрок закрывает событие, потом
+# продолжает жить как обычно. Раньше стратегия на 5-м и 6-м дне просто
+# «прерывалась», и в таблицах выглядело так, будто игрок терял день.
+# Это свойство тестовой стратегии, а не правило игры, поэтому эталон
+# теперь повторяет правило: событие, затем обычные действия дня.
+
 
 def policy_saver(day, g):
     """Копилка: копит и почти не тратит. Белка брошен — счастье падает."""
     acts = []
     if day == g.scenario.phone_day:
-        return [g.phone("repair")]
+        acts.append(g.phone("repair"))
     if day == g.scenario.gift_day:
-        return [g.gift("small")]
+        acts.append(g.gift("small"))
     if day == 1:
         acts.append(g.save(4000))
     if g.energy >= 30 and g.cash < 9000:
@@ -433,12 +559,12 @@ def policy_saver(day, g):
 
 
 def policy_worker(day, g):
-    """Трудяга: максимум смен, никаких развлечений и никакого ухода за белкаом."""
+    """Трудяга: максимум смен, никаких развлечений и никакого ухода за белком."""
     acts = []
     if day == g.scenario.phone_day:
-        return [g.phone("repair")]
+        acts.append(g.phone("repair"))
     if day == g.scenario.gift_day:
-        return [g.gift("mid")]
+        acts.append(g.gift("mid"))
     if g.energy >= 30:
         acts.append(try_jobs(g, ["courier", "kafe", "dishes"]))
     elif g.energy >= 12:
@@ -456,9 +582,9 @@ def policy_balanced(day, g):
     """Баланс: работа в хорошей форме, отдых, белка, умеренные траты."""
     acts = []
     if day == g.scenario.phone_day:
-        return [g.phone("repair")]
+        acts.append(g.phone("repair"))
     if day == g.scenario.gift_day:
-        return [g.gift("mid")]
+        acts.append(g.gift("mid"))
     if day == 1:
         acts.append(g.save(2000))
         acts.append(g.buy("kino"))
@@ -471,6 +597,9 @@ def policy_balanced(day, g):
         acts.append(g.buy("products"))
     if g.hygiene < 45:
         acts.append(g.buy("shower"))
+    # Соломона моют, когда он начинает пачкаться: без этого он скучает сильнее.
+    if g.cleanliness < 80:
+        acts.append(g.buy("wash"))
     if day == 3:
         acts.append(g.buy("park"))
     return acts
@@ -480,9 +609,9 @@ def policy_gecko(day, g):
     """Гедонист: развлечения и дорогие покупки в долг. Деньги кончаются."""
     acts = []
     if day == g.scenario.phone_day:
-        return [g.phone("new")]
+        acts.append(g.phone("new"))
     if day == g.scenario.gift_day:
-        return [g.gift("big")]
+        acts.append(g.gift("big"))
     if g.energy < 30:
         acts.append(g.sleep())
     else:
@@ -564,6 +693,19 @@ def expense_audit(g: Game) -> dict:
         "есть_подушка": g.savings >= 2000,
         "кошелёк_не_пустой": g.cash > 0,
     }
+    # Разбор перечисляет все нарушения, а не только первое: иначе игрок
+    # не видит долг и перекос трат, если не покрыл обязательные.
+    violations = []
+    if not checks["обязательные_покрыты"]:
+        violations.append("обязательные расходы не покрыты")
+    if not checks["нет_долга"]:
+        violations.append("есть долг")
+    if share > 0.6:
+        violations.append("доля необязательных трат выше 60 %")
+    if not checks["есть_подушка"]:
+        violations.append("нет финансовой подушки")
+    if not checks["кошелёк_не_пустой"]:
+        violations.append("кошелёк пуст")
     if not checks["обязательные_покрыты"]:
         verdict = "Обязательные расходы не покрыты"
     elif not checks["нет_долга"]:
@@ -575,12 +717,14 @@ def expense_audit(g: Game) -> dict:
     else:
         verdict = "Расходы покрыты, но резерв не создан"
     checks["вердикт"] = verdict
+    checks["нарушения"] = violations
     return checks
 
 
 def stats(g: Game) -> dict:
     avg_mood = sum(r[3] for r in g.log) / len(g.log)
     avg_solomon = sum(r[5] for r in g.log) / len(g.log)
+    avg_clean = sum(r[10] for r in g.log) / len(g.log)
     balance = g.cash + g.savings
     audit = expense_audit(g)
     return {
@@ -589,6 +733,7 @@ def stats(g: Game) -> dict:
         "подушка": g.savings,
         "среднее_настроение": round(avg_mood, 1),
         "средний_белка": round(avg_solomon, 1),
+        "средняя_чистота": round(avg_clean, 1),
         "смен": g.shifts,
         "доход": g.income,
         "расход": g.expenses,
@@ -614,7 +759,7 @@ def report(scenario: Scenario) -> None:
         s = stats(g)
         print(f"{name}: баланс {s['итоговый_баланс']}, кошелёк {s['кошелёк']}, "
               f"подушка {s['подушка']}, настр {s['среднее_настроение']}, белка {s['средний_белка']}, "
-              f"смен {s['смен']} → {s['итог']}")
+              f"чистота {s['средняя_чистота']}, смен {s['смен']} → {s['итог']}")
         print(f"    статьи расходов: {g.spent_by_category}")
         print(f"    проверка расходов: {s['аудит']['вердикт']} "
               f"(доля необязательных {s['аудит']['доля_необязательных']:.0%})")

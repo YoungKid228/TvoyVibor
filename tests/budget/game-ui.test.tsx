@@ -33,11 +33,11 @@ describe("игра «Белка Соломон»", () => {
     expect(screen.getByRole("button", { name: /Сбросить/i })).toBeTruthy();
   });
 
-  it("после старта показывает день 1, пять шкал и кошелёк", () => {
+  it("после старта показывает день 1, шесть шкал и кошелёк", () => {
     startGame();
     expect(screen.getByText(/День 1 из 7/)).toBeTruthy();
-    // Пять шкал с ролью progressbar.
-    expect(screen.getAllByRole("progressbar")).toHaveLength(5);
+    // Шесть шкал с ролью progressbar: настроение, энергия, сытость, гигиена, Соломон, чистота.
+    expect(screen.getAllByRole("progressbar")).toHaveLength(6);
     // Обязательные расходы 1-го дня списаны: 20 000 − 12 500 = 7 500.
     // Сумма показана и в кошельке, и в итоговом балансе.
     expect(screen.getAllByText("7 500 ₽").length).toBeGreaterThan(0);
@@ -46,10 +46,21 @@ describe("игра «Белка Соломон»", () => {
   it("вкладки действий переключаются", () => {
     startGame();
     expect(screen.getByText("Помощь по хозяйству")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /Потратить/ }));
+    // Переключатели теперь нарисованы на сцене: это обычные кнопки.
+    fireEvent.click(screen.getByRole("button", { name: /Потратить/ }));
     expect(screen.getByText("Поход в кино")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: /Отдохнуть/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Отдохнуть/ }));
     expect(screen.getByText("Поспать")).toBeTruthy();
+  });
+
+  it("переключатель меняет локацию сцены", () => {
+    startGame();
+    expect(screen.getByLabelText(/^Сцена: Город/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Потратить/ }));
+    expect(screen.getByLabelText(/^Сцена: Арбат/)).toBeTruthy();
+    // «Соломон» — точное имя: в карточках есть «Поглаживание Соломона».
+    fireEvent.click(screen.getByRole("button", { name: /^Соломон$/ }));
+    expect(screen.getByLabelText(/^Сцена: Ванная/)).toBeTruthy();
   });
 
   it("смена увеличивает кошелёк и тратит энергию", () => {

@@ -11,6 +11,7 @@ import {
 import {
   createInitialState,
   endDay,
+  normalizeState,
   resolveEvent,
   startDay,
   buy,
@@ -39,7 +40,7 @@ import type {
  * здесь нет никакой арифметики.
  */
 
-type Screen = "menu" | "day" | "event" | "result";
+type Screen = "menu" | "rules" | "day" | "result";
 
 type GameContextValue = {
   state: GameState;
@@ -51,6 +52,7 @@ type GameContextValue = {
   resumeGame: () => void;
   resetGame: () => void;
   toMenu: () => void;
+  showRules: () => void;
   doWork: (jobId: JobId) => void;
   doBuy: (spendId: SpendId) => void;
   doBuyItem: (itemId: ItemId) => void;
@@ -68,8 +70,8 @@ type Action =
   | { type: "resume" }
   | { type: "reset" }
   | { type: "menu" }
+  | { type: "rules" }
   | { type: "apply"; next: GameState; message: string | null; error: string | null }
-  | { type: "screen"; screen: Screen }
   | { type: "load"; state: GameState };
 
 type Store = {
@@ -93,7 +95,7 @@ function reducer(store: Store, action: Action): Store {
       startDay(state);
       return {
         state,
-        screen: state.pendingEvent ? "event" : "day",
+        screen: "day",
         message: null,
         error: null,
       };
@@ -101,36 +103,32 @@ function reducer(store: Store, action: Action): Store {
     case "resume": {
       const state = store.state;
       // Пустое состояние — это ещё не начатая игра: запускаем первый день.
-      if (state.log.length === 0 && !state.finished) {
+      // Начатый день перезапускать нельзя: списались бы обязательные
+      // расходы и спад шкал второй раз.
+      if (state.log.length === 0 && !state.finished && !state.dayStarted) {
         startDay(state);
       }
       return {
         ...store,
         state,
-        screen: state.pendingEvent
-          ? "event"
-          : state.finished
-            ? "result"
-            : "day",
+        screen: state.finished ? "result" : "day",
       };
     }
     case "reset":
       return { ...initialStore, state: createInitialState("short", "none") };
     case "menu":
       return { ...store, screen: "menu" };
+    case "rules":
+      return { ...store, screen: "rules" };
     case "apply":
       return {
         state: action.next,
-        screen: action.next.finished
-          ? "result"
-          : action.next.pendingEvent
-            ? "event"
-            : "day",
+        // Событие — часть дня, а не отдельный экран: игрок видит шкалы
+        // и кошелёк, выбирая между «ремонт 4 000» и «старый телефон 0».
+        screen: action.next.finished ? "result" : "day",
         message: action.message,
         error: action.error,
       };
-    case "screen":
-      return { ...store, screen: action.screen };
     case "load":
       // Сохранение подгружается в меню: игрок сам решает, продолжить ли.
       // Так кнопки «Продолжить» и «Сбросить» остаются доступными.
@@ -147,7 +145,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void loadGame().then((state) => {
       if (cancelled || !state) return;
-      dispatch({ type: "load", state });
+      dispatch({ type: "load", state: normalizeState(state) });
     });
     return () => {
       cancelled = true;
@@ -166,7 +164,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   /** Применить действие к копии состояния. */
   const apply = useCallback(
-    (mutate: (draft: GameState) => string | null, isError = false) => {
+    (mutate: (draft: GameState) => string | null) => {
       const draft: GameState = {
         ...store.state,
         scales: { ...store.state.scales },
@@ -176,13 +174,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
         spentByCategory: { ...store.state.spentByCategory },
         log: [...store.state.log],
         dayActions: [...store.state.dayActions],
+        dayNotes: [...store.state.dayNotes],
+        itemDays: { ...store.state.itemDays },
       };
       const result = mutate(draft);
       dispatch({
         type: "apply",
         next: draft,
-        message: isError ? null : result,
-        error: isError ? result : null,
+        message: result,
+        error: null,
       });
     },
     [store.state],
@@ -202,6 +202,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "reset" });
       },
       toMenu: () => dispatch({ type: "menu" }),
+      showRules: () => dispatch({ type: "rules" }),
       doWork: (jobId) => apply((draft) => work(draft, jobId)),
       doBuy: (spendId) => apply((draft) => buy(draft, spendId)),
       doBuyItem: (itemId) => apply((draft) => buyItem(draft, itemId)),
@@ -213,12 +214,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }),
       doWithdraw: (amount) => apply((draft) => takeFromSavings(draft, amount)),
       chooseEvent: (optionId) =>
-        apply((draft) => {
-          const result = resolveEvent(draft, optionId);
-          return result.startsWith("нет ") || result.includes("недоступно")
-            ? result
-            : result;
-        }),
+        apply((draft) => resolveEvent(draft, optionId)),
       finishDay: () =>
         apply((draft) => {
           endDay(draft, draft.dayActions);
