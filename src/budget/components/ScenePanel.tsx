@@ -105,8 +105,14 @@ type Props = {
   onSleep: () => void;
 };
 
-/** Часы в виде «09:40». */
-export function formatClock(minutes: number): string {
+/**
+ * Часы в виде «09:40».
+ *
+ * Функция не экспортируется: файл с компонентом и посторонним экспортом
+ * ломает горячую перезагрузку Vite (Fast Refresh) — страница перезагружается
+ * целиком при каждой правке сцены.
+ */
+function formatClock(minutes: number): string {
   const h = Math.floor(minutes / 60) % 24;
   const m = Math.floor(minutes % 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
