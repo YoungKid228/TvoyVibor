@@ -29,17 +29,14 @@ type TabButton = {
 /**
  * Раскладка кнопок по кадру.
  *
- * Верхняя левая — первая вкладка, справа в столбик — остальные. Правая
- * колонка начинается с 70 % ширины, а персонаж нигде не доходит до этих
- * 70 %, поэтому кнопки не наезжают на белку.
+ * Справа в столбик — три вкладки: «Потратить», «Соломон», «Заработать».
+ * Правая колонка начинается с 70 % ширины, а персонаж нигде не доходит до
+ * этих 70 %, поэтому кнопки не наезжают на белку.
+ *
+ * Слева сверху — сон и часы рядом с ним: сон закрывает день, поэтому он
+ * должен быть на виду всегда, а часы показывают, сколько времени осталось.
  */
 const TAB_BUTTONS: TabButton[] = [
-  {
-    id: "work",
-    label: "Заработать",
-    icon: "ui/tab-earn",
-    spot: { left: "1.5%", top: "5%", width: "22%", height: "22%" },
-  },
   {
     id: "spend",
     label: "Потратить",
@@ -52,17 +49,24 @@ const TAB_BUTTONS: TabButton[] = [
     icon: "ui/tab-pet",
     spot: { left: "70%", top: "33.5%", width: "26.5%", height: "20%" },
   },
+  {
+    id: "work",
+    label: "Заработать",
+    icon: "ui/tab-earn",
+    spot: { left: "70%", top: "62%", width: "26.5%", height: "20%" },
+  },
 ];
 
-/** Нижний правый угол — не кнопка, а часы: сколько времени осталось до ночи. */
+/** Сон: закрывает день, поэтому живёт слева сверху и виден всегда. */
 const SLEEP_SPOT = {
   left: "2%",
   top: "2%",
-  width: "16%",
-  height: "12%",
+  width: "18%",
+  height: "15%",
 };
 
-const CLOCK_SPOT = { left: "70%", top: "62%", width: "26.5%", height: "20%" };
+/** Часы — рядом со сном, справа от него. */
+const CLOCK_SPOT = { left: "21%", top: "2%", width: "20%", height: "15%" };
 
 /**
  * Доля высоты канваса спрайта, которую занимает сам персонаж.
@@ -223,10 +227,10 @@ export default function ScenePanel({
           height: CLOCK_SPOT.height,
         }}
       >
-        <span className="font-mono text-lg font-bold leading-none">
+        <span className="font-mono text-base font-bold leading-none">
           {formatClock(clock)}
         </span>
-        <span className="text-[10px] leading-tight opacity-90">{phaseLabel}</span>
+        <span className="text-[9px] leading-tight opacity-90">{phaseLabel}</span>
       </div>
 
       {/* Подпись сцены: где мы и в каком он состоянии. */}
