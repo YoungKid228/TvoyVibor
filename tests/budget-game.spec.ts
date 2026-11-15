@@ -126,3 +126,32 @@ test("игра: прогресс сохраняется после переза�
   await resume.click();
   await expect(page.getByText(/День 2 из 7/)).toBeVisible();
 });
+
+/**
+ * Полноэкранный режим игры.
+ *
+ * После «Понятно, начинаем» шапка приложения и навигация по разделам
+ * убираются: игра занимает весь экран вертикально. Кнопка «В меню»
+ * возвращает шапку.
+ */
+test("игра: во время прохождения дня шапка приложения скрыта", async ({ page }) => {
+  const nav = page.getByRole("navigation", { name: "Разделы" });
+  const brand = page.getByRole("heading", { name: "Экономика — твой выбор" });
+
+  await page.getByRole("button", { name: /^Игра$/ }).click();
+  await expect(nav).toBeVisible();
+  await expect(brand).toBeVisible();
+
+  await page.getByRole("button", { name: /Начать/i }).click();
+  await page.getByRole("button", { name: /Понятно, начинаем/i }).click();
+  await expect(page.getByText(/День 1 из 7/)).toBeVisible();
+
+  // Игра на весь экран: ни шапки, ни навигации.
+  await expect(nav).toBeHidden();
+  await expect(brand).toBeHidden();
+
+  // Возврат кнопкой «В меню» — шапка снова на месте.
+  await page.getByRole("button", { name: /^В меню$/ }).click();
+  await expect(nav).toBeVisible();
+  await expect(brand).toBeVisible();
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PixelButton from "../../components/PixelButton";
 import Icon from "../components/Icon";
 import ActionCards from "../components/ActionCards";
@@ -34,8 +34,26 @@ import type { ScenarioKey, SpendId } from "../core/types";
  * экран: пока игрок не выбрал вариант, день не продолжается, но шкалы и
  * кошелёк уже видны — видно, во что обойдётся каждый вариант.
  */
-export default function BudgetGamePage() {
+type Props = {
+  /**
+   * Сообщить приложению, что игра перешла в полноэкранный режим.
+   *
+   * В этом режиме шапка приложения и навигация по разделам убираются:
+   * игра занимает весь экран вертикально. Возврат — кнопка «В меню»
+   * в игровом экране.
+   */
+  onImmersiveChange?: (immersive: boolean) => void;
+};
+
+export default function BudgetGamePage({ onImmersiveChange }: Props) {
   const game = useGame();
+  // Полноэкранный режим — это сама игра: день и итоги. Меню, брифинг и
+  // правила остаются внутри приложения, с шапкой и навигацией.
+  const immersive = game.screen === "day" || game.screen === "result";
+
+  useEffect(() => {
+    onImmersiveChange?.(immersive);
+  }, [immersive, onImmersiveChange]);
 
   return (
     <div className="flex flex-col gap-4">

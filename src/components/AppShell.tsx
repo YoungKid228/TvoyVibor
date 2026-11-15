@@ -46,9 +46,22 @@ function useRubleGlyphImage(): string | null {
   return src;
 }
 
-export default function AppShell({ children }: { children: ReactNode }) {
+type ShellProps = {
+  children: ReactNode;
+  /**
+   * Полноэкранный режим: шапка приложения не показывается, контент
+   * занимает весь экран. Используется игрой — во время прохождения дня
+   * ничто лишнее не отвлекает.
+   */
+  immersive?: boolean;
+};
+
+export default function AppShell({ children, immersive = false }: ShellProps) {
   const rubleGlyph = useRubleGlyphImage();
 
+  // Полноэкранный режим не меняет структуру дерева: шапка и фон просто
+  // скрываются классами. Иначе React пересоздаёт поддерево — и, например,
+  // диалог установки приложения выскакивает снова посреди игры.
   if (FULLSCREEN_BACKGROUND) {
     return (
       <div className="bg-fs-root relative min-h-dvh">
@@ -86,21 +99,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative min-h-dvh text-stone-900">
+    <div
+      className={
+        immersive
+          ? "relative min-h-dvh bg-[#fff7ed] text-stone-900"
+          : "relative min-h-dvh text-stone-900"
+      }
+    >
       {/* Dot Matrix — фон всей страницы вместо белого (WebGL, ogl).
           Палитра нюдовая (ближе к белому), сверху светлая вуаль —
           иначе паттерн сливается с текстом. Вуаль без backdrop-blur:
           блюр поверх анимированного канваса на весь экран непосилен
           для слабых устройств и вешает авто-тесты */}
-      <div className="fixed inset-0 z-0">
+      <div className={immersive ? "hidden" : "fixed inset-0 z-0"}>
         <DotMatrixBackground
           className="absolute inset-0"
           colors={["#FFFFFF", "#F0C9A0", "#D9A268"]}
+          play={!immersive}
         />
         <div className="pointer-events-none absolute inset-0 bg-[#fff7ed]/50" />
       </div>
       <div className="relative z-10">
-      <header className="relative overflow-hidden bg-stone-950 text-white">
+      <header
+        className={
+          immersive
+            ? "hidden"
+            : "relative overflow-hidden bg-stone-950 text-white"
+        }
+      >
         {/* Слой 1: процедурный фон крупными ячейками (без герба).
             Яркость/контраст подняты: чистый процедурный градиент темнее фото,
             без этого воксели после нормализации почти исчезают */}
@@ -149,7 +175,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-xl px-4 py-6">{children}</main>
+      <main
+        className={
+          immersive
+            ? "mx-auto w-full max-w-3xl px-3 py-4 sm:px-4"
+            : "mx-auto max-w-xl px-4 py-6"
+        }
+      >
+        {children}
+      </main>
       </div>
     </div>
   );

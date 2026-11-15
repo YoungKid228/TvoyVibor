@@ -360,6 +360,13 @@ export interface DottedBackgroundProps {
     fontWeight?: string | number;
     fontSizePx?: number;
     className?: string;
+    /**
+     * Анимировать фон.
+     *
+     * false — перестать рисовать (нужно, когда фон скрыт: в игре весь экран
+     * занят сценой, и WebGL-шейдер под ней только греет телефон).
+     */
+    play?: boolean;
 }
 
 function OriginkitDottedBackground({
@@ -377,6 +384,7 @@ function OriginkitDottedBackground({
     fontWeight = 400,
     fontSizePx = 42,
     className,
+    play = true,
 }: DottedBackgroundProps) {
     const useGlyphAtlasFlag = useGlyphAtlas === true;
     const paletteColors =
@@ -396,7 +404,7 @@ function OriginkitDottedBackground({
         return sanitized.length > 0 ? sanitized : DEFAULT_CHARACTERS;
     })();
 
-    const effectivePlay = true;
+    const effectivePlay = play;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const perlinProgramRef = useRef<any>(null);

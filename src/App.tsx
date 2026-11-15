@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "./components/AppShell";
 import InstallGate from "./components/InstallGate";
 import PixelButton from "./components/PixelButton";
@@ -58,19 +58,30 @@ function activeSection(view: View): string {
 
 export default function App() {
   const [view, setView] = useState<View>({ name: "home" });
+  /* Игра во время прохождения дня занимает весь экран: шапка приложения
+     и навигация по разделам убираются. Возврат — кнопка «В меню» в игре. */
+  const [immersive, setImmersive] = useState(false);
+  const handleImmersive = useCallback((value: boolean) => {
+    setImmersive(value);
+  }, []);
 
   /* При переходе на другой экран страница открывается сверху,
      а не с позиции прокрутки предыдущего */
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
+    if (view.name !== "game") setImmersive(false);
   }, [view]);
 
   return (
-    <AppShell>
+    <AppShell immersive={immersive}>
       <InstallGate>
         <nav
           aria-label="Разделы"
-          className="mb-6 flex flex-wrap gap-2 rounded-xl border border-stone-200 bg-white p-1"
+          className={
+            immersive
+              ? "hidden"
+              : "mb-6 flex flex-wrap gap-2 rounded-xl border border-stone-200 bg-white p-1"
+          }
         >
           {navItems.map((item) => {
             const active = activeSection(view) === item.key;
@@ -131,7 +142,7 @@ export default function App() {
           ниже на <GamePage />. */}
       {view.name === "game" && (
         <GameProvider>
-          <BudgetGamePage />
+          <BudgetGamePage onImmersiveChange={handleImmersive} />
         </GameProvider>
       )}
       {view.name === "gallery" && (
