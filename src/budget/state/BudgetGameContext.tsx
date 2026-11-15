@@ -15,7 +15,7 @@ import {
   resolveEvent,
   startDay,
   buy,
-  buyItem,
+  chooseTransport,
   rest,
   saveToSavings,
   takeFromSavings,
@@ -25,11 +25,11 @@ import { SCENARIOS } from "../data/scenario";
 import { clearGame, loadGame, saveGame } from "../storage/saveRepository";
 import type {
   GameState,
-  ItemId,
   JobId,
   ProfessionId,
   ScenarioKey,
   SpendId,
+  TransportId,
 } from "../core/types";
 
 /**
@@ -40,7 +40,7 @@ import type {
  * здесь нет никакой арифметики.
  */
 
-type Screen = "menu" | "rules" | "day" | "result";
+type Screen = "menu" | "rules" | "briefing" | "day" | "result";
 
 type GameContextValue = {
   state: GameState;
@@ -49,13 +49,15 @@ type GameContextValue = {
   message: string | null;
   error: string | null;
   startGame: (scenarioKey: ScenarioKey, professionId: ProfessionId) => void;
+  /** Перейти от брифинга к первому дню. */
+  startPlaying: () => void;
   resumeGame: () => void;
   resetGame: () => void;
   toMenu: () => void;
   showRules: () => void;
   doWork: (jobId: JobId) => void;
   doBuy: (spendId: SpendId) => void;
-  doBuyItem: (itemId: ItemId) => void;
+  doTransport: (transportId: TransportId) => void;
   doRest: () => void;
   doSave: (amount: number) => void;
   doWithdraw: (amount: number) => void;
@@ -67,6 +69,7 @@ const GameContext = createContext<GameContextValue | null>(null);
 
 type Action =
   | { type: "start"; scenarioKey: ScenarioKey; professionId: ProfessionId }
+  | { type: "play" }
   | { type: "resume" }
   | { type: "reset" }
   | { type: "menu" }
@@ -95,11 +98,15 @@ function reducer(store: Store, action: Action): Store {
       startDay(state);
       return {
         state,
-        screen: "day",
+        // Сначала брифинг: игрока знакомят с белкой и объясняют, что есть
+        // обязательные расходы, а есть необязательные.
+        screen: "briefing",
         message: null,
         error: null,
       };
     }
+    case "play":
+      return { ...store, screen: "day" };
     case "resume": {
       const state = store.state;
       // Пустое состояние — это ещё не начатая игра: запускаем первый день.
@@ -125,7 +132,12 @@ function reducer(store: Store, action: Action): Store {
         state: action.next,
         // Событие — часть дня, а не отдельный экран: игрок видит шкалы
         // и кошелёк, выбирая между «ремонт 4 000» и «старый телефон 0».
-        screen: action.next.finished ? "result" : "day",
+        // Проигрыш — отдельный экран: итоги при проигрыше не подводятся.
+        screen: action.next.lost
+          ? "day"
+          : action.next.finished
+            ? "result"
+            : "day",
         message: action.message,
         error: action.error,
       };
@@ -196,6 +208,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       error: store.error,
       startGame: (scenarioKey, professionId) =>
         dispatch({ type: "start", scenarioKey, professionId }),
+      startPlaying: () => dispatch({ type: "play" }),
       resumeGame: () => dispatch({ type: "resume" }),
       resetGame: () => {
         void clearGame();
@@ -205,8 +218,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
       showRules: () => dispatch({ type: "rules" }),
       doWork: (jobId) => apply((draft) => work(draft, jobId)),
       doBuy: (spendId) => apply((draft) => buy(draft, spendId)),
-      doBuyItem: (itemId) => apply((draft) => buyItem(draft, itemId)),
-      doRest: () => apply((draft) => rest(draft)),
+      doTransport: (transportId) =>
+        apply((draft) => chooseTransport(draft, transportId)),
+      // Сон закрывает день: восстанавливает силы и переводит игру на
+      // следующий день. Без сна день не заканчивается.
+      doRest: () =>
+        apply((draft) => {
+          const message = rest(draft);
+          if (draft.phase !== "done") return message;
+          endDay(draft, draft.dayActions);
+          if (draft.lost) return "Игра проиграна.";
+          if (draft.finished) return "Игра закончилась — подводим итоги.";
+          startDay(draft);
+          return "Сон прошёл, наступило утро.";
+        }),
       doSave: (amount) =>
         apply((draft) => {
           if (amount === 0) return null;

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { morning, startGame } from "./budget-flow";
 
 /**
  * Мобильная вёрстка игры «Белка Соломон».
@@ -27,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("игра не разъезжается по горизонтали на 360 px", async ({ page }) => {
-  await page.getByRole("button", { name: /Начать/i }).click();
+  await startGame(page);
   await expect(page.getByText(/День 1 из 7/)).toBeVisible();
 
   const overflow = await page.evaluate(
@@ -38,13 +39,14 @@ test("игра не разъезжается по горизонтали на 36
 });
 
 test("тач-цели на экране дня не меньше 44 px", async ({ page }) => {
-  await page.getByRole("button", { name: /Начать/i }).click();
+  await startGame(page);
   await expect(page.getByText(/День 1 из 7/)).toBeVisible();
+  await morning(page);
 
   const small = await page.evaluate((min) => {
     const bad: string[] = [];
     const nodes = Array.from(
-      document.querySelectorAll<HTMLElement>("button, [role='tab']"),
+      document.querySelectorAll<HTMLElement>("button"),
     );
     for (const node of nodes) {
       const rect = node.getBoundingClientRect();

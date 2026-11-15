@@ -1,8 +1,8 @@
 import raw from "../../data/solomon-game.json";
 import type {
+  DayPlan,
   ExpenseAudit,
   GameEvent,
-  Item,
   Job,
   Location,
   Profession,
@@ -12,6 +12,7 @@ import type {
   Spend,
   SpendCategory,
   SpendCategoryKey,
+  Transport,
 } from "../core/types";
 
 /**
@@ -27,6 +28,7 @@ type RawJob = {
   pay: number;
   moodCost: number;
   energyCost: number;
+  minutes: number;
   limit: number;
   requires: string | null;
   local: boolean;
@@ -37,22 +39,30 @@ type RawSpend = {
   label: string;
   icon: string;
   cost: number;
+  minutes: number;
+  location: string;
   moodGain: number;
   energyCost: number;
+  energyGain: number;
   hungerGain: number;
-  hygieneGain: number;
+  cleanlinessGain: number;
   repGain: number;
-  solomonGain: number;
-  local: boolean;
+  category: SpendCategory;
+  preparesMeal: boolean;
+  requires: string | null;
+  once?: boolean;
+  period?: boolean;
 };
 
-type RawItem = {
+type RawTransport = {
   id: string;
   label: string;
   icon: string;
   cost: number;
-  effect: "freelance" | "hygiene" | "mood";
-  note: string;
+  minutes: number;
+  energyCost: number;
+  dirt: number;
+  moodGain: number;
 };
 
 type RawProfession = {
@@ -91,15 +101,16 @@ type RawLocation = {
 };
 
 const data = raw as unknown as {
+  day: DayPlan;
   jobs: RawJob[];
   spends: RawSpend[];
-  items: RawItem[];
+  transport: RawTransport[];
   professions: RawProfession[];
   events: RawEvent[];
   locations: Record<string, RawLocation>;
   tabLocations: Record<string, string>;
-  scenarios: Record<ScenarioKey, Record<string, number | string>>;
-  rules: Record<string, number>;
+  scenarios: Record<ScenarioKey, Record<string, number | number[] | string>>;
+  rules: Record<string, number | boolean>;
   spendCategories: Record<SpendCategoryKey, SpendCategory>;
   entertainmentSpends: string[];
 };
@@ -111,6 +122,7 @@ export const JOBS: Job[] = data.jobs.map((job) => ({
   pay: job.pay,
   energyCost: job.energyCost,
   moodCost: job.moodCost,
+  minutes: job.minutes,
   requires: job.requires,
   limit: job.limit,
   local: job.local,
@@ -121,22 +133,30 @@ export const SPENDS: Spend[] = data.spends.map((spend) => ({
   label: spend.label,
   icon: spend.icon,
   cost: spend.cost,
+  minutes: spend.minutes,
+  location: spend.location,
   moodGain: spend.moodGain,
   energyCost: spend.energyCost,
+  energyGain: spend.energyGain,
   hungerGain: spend.hungerGain,
-  hygieneGain: spend.hygieneGain,
+  cleanlinessGain: spend.cleanlinessGain,
   repGain: spend.repGain,
-  solomonGain: spend.solomonGain,
-  local: spend.local,
+  category: spend.category,
+  preparesMeal: spend.preparesMeal,
+  requires: spend.requires,
+  once: spend.once,
+  period: spend.period,
 }));
 
-export const ITEMS: Item[] = data.items.map((item) => ({
-  id: item.id as Item["id"],
+export const TRANSPORTS: Transport[] = data.transport.map((item) => ({
+  id: item.id as Transport["id"],
   label: item.label,
   icon: item.icon,
   cost: item.cost,
-  effect: item.effect,
-  note: item.note,
+  minutes: item.minutes,
+  energyCost: item.energyCost,
+  dirt: item.dirt,
+  moodGain: item.moodGain,
 }));
 
 export const PROFESSIONS: Profession[] = data.professions.map((prof) => ({
@@ -151,35 +171,27 @@ export const PROFESSIONS: Profession[] = data.professions.map((prof) => ({
 
 const EVENT_HINTS: Record<string, Record<string, string>> = {
   phone: {
-    repair: "Починим — почти вдвое дешевле, но недорогой телефон обидно.",
+    repair: "Починим — почти вдвое дешевле, но связь работает через день.",
     new: "Новый телефон дорогой, зато радость каждый день.",
-    old: "Бесплатно, но старый телефон бьёт по настроению — и по Соломону.",
+    old: "Бесплатно, но без телефона нет курьерской доставки и тик-тока.",
   },
   gift: {
-    rich: "Дорогой подарок и кафе: дороже всего, но не гарантирует тёплое отношение.",
-    mid: "Подарок и праздник: золотая середина.",
-    small: "Символический подарок: дёшево, но внимание важнее суммы.",
-  },
-  blizzard: {
-    taxi: "Быстро, но −400 ₽. Город встал.",
-    bus: "Бесплатно, но весь день в транспорте.",
-    walk: "Бесплатно, но −15 энергии: в −22 мороз идти далеко.",
+    big: "Впечатление сильное, но дыра в кошельке тоже.",
+    mid: "Золотая середина: и друг, и кошелёк довольны.",
+    small: "Дёшево, но внимание важнее суммы.",
   },
 };
 
 const EVENT_TITLES: Record<string, string> = {
   phone: "Сломался телефон",
   gift: "День рождения друга",
-  blizzard: "Снегопад парализует Биробиджан",
 };
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   phone:
-    "Телефон — рабочий инструмент: без него не сдашь курсовую. Ремонт, новый или отказ от связи?",
+    "Телефон — рабочий инструмент: без него не выйти на курьерскую доставку и не посмотреть тик-токи. Ремонт, новый или отказ от связи?",
   gift:
     "Другу сегодня день рождения. Внимание важнее суммы — но и сумма кое-что значит.",
-  blizzard:
-    "За окном −22 и метель. Город разделился: одни едут на такси, другие идут пешком.",
 };
 
 export const EVENTS: GameEvent[] = data.events.map((event) => ({
@@ -195,37 +207,48 @@ export const EVENTS: GameEvent[] = data.events.map((event) => ({
     icon: option.icon,
     cost: option.cost,
     moodGain: option.moodGain,
-    solomonGain: option.solomonGain ?? 0,
     energyCost: option.energyCost ?? 0,
     hint: EVENT_HINTS[event.id]?.[option.id] ?? "",
   })),
 }));
 
+/** Расписание дня: часы в минутах от 00:00. */
+export const DAY: DayPlan = data.day;
+
 export const RULES: Rules = {
-  weeklyShiftCap: data.rules.weeklyShiftCap,
-  burnoutMood: data.rules.burnoutMood,
-  burnoutRate: data.rules.burnoutRate,
-  boringDaily: data.rules.boringDaily,
-  sleepMood: data.rules.sleepMood,
-  sleepEnergy: data.rules.sleepEnergy,
-  sleepPerDay: data.rules.sleepPerDay,
-  petPerDay: data.rules.petPerDay,
-  washPerDay: data.rules.washPerDay,
-  cleanAt: data.rules.cleanAt,
-  dirtyAt: data.rules.dirtyAt,
-  repCap: data.rules.repCap,
-  gymDays: data.rules.gymDays,
-  saveBonusAt: data.rules.saveBonusAt,
-  saveBonus: data.rules.saveBonus,
-  solomonUpAt: data.rules.solomonUpAt,
-  solomonUp: data.rules.solomonUp,
-  solomonDown: data.rules.solomonDown,
-  gloomyOwnerMood: data.rules.gloomyOwnerMood,
-  solomonHappy: data.rules.solomonHappy,
-  creditMoodPenalty: data.rules.creditMoodPenalty,
-  debtDailyMoodPenalty: data.rules.debtDailyMoodPenalty,
-  hungerPenalty: data.rules.hungerPenalty,
-  hygienePenalty: data.rules.hygienePenalty,
+  weeklyShiftCap: data.rules.weeklyShiftCap as number,
+  burnoutMood: data.rules.burnoutMood as number,
+  burnoutRate: data.rules.burnoutRate as number,
+  boringDaily: data.rules.boringDaily as number,
+  sleepMood: data.rules.sleepMood as number,
+  sleepEnergy: data.rules.sleepEnergy as number,
+  sleepHunger: data.rules.sleepHunger as number,
+  petNeglectMood: data.rules.petNeglectMood as number,
+  mealsPerDay: data.rules.mealsPerDay as number,
+  sleepPerDay: data.rules.sleepPerDay as number,
+  petPerDay: data.rules.petPerDay as number,
+  washPerDay: data.rules.washPerDay as number,
+  cleanAt: data.rules.cleanAt as number,
+  dirtyAt: data.rules.dirtyAt as number,
+  cleanlinessDecay: data.rules.cleanlinessDecay as number,
+  repCap: data.rules.repCap as number,
+  saveBonusAt: data.rules.saveBonusAt as number,
+  saveBonus: data.rules.saveBonus as number,
+  hungerPenalty: data.rules.hungerPenalty as number,
+  hygienePenalty: data.rules.hygienePenalty as number,
+  classesEnergyCost: data.rules.classesEnergyCost as number,
+  classesMoodCost: data.rules.classesMoodCost as number,
+  classesMinutes: data.rules.classesMinutes as number,
+  lessonStreakForTutor: data.rules.lessonStreakForTutor as number,
+  lessonMoodGain: data.rules.lessonMoodGain as number,
+  missedLessonMood: data.rules.missedLessonMood as number,
+  lessonProblemsAfter: data.rules.lessonProblemsAfter as number,
+  moodForFun: data.rules.moodForFun as number,
+  neglectHunger: data.rules.neglectHunger as number,
+  neglectDaysToLose: data.rules.neglectDaysToLose as number,
+  cleanFactorGood: data.rules.cleanFactorGood as number,
+  cleanFactorWeak: data.rules.cleanFactorWeak as number,
+  cleanFactorBad: data.rules.cleanFactorBad as number,
 };
 
 export const SPEND_CATEGORIES: Record<SpendCategoryKey, SpendCategory> =
@@ -235,8 +258,8 @@ export const SPEND_CATEGORIES: Record<SpendCategoryKey, SpendCategory> =
  * Локации — фоны сцен, где стоит Соломон.
  *
  * Фоны приходят без персонажа, поэтому локация описывает ещё и точку,
- * где его поставить: координаты в процентах от кадра подобраны так, чтобы
- * белка стояла на полу/снегу и не закрывала важные детали сцены.
+ * где его поставить: координаты в процентах от кадра подобраны по
+ * макетам в `backgrounds/preview- того как должно быть`.
  */
 export const LOCATIONS: Record<string, Location> = Object.fromEntries(
   Object.entries(data.locations).map(([id, loc]) => [
@@ -262,52 +285,43 @@ export function locationById(id: string): Location {
 /** Траты, которые в разборе считаются необязательными. */
 export const ENTERTAINMENT_SPENDS: string[] = data.entertainmentSpends;
 
-export const SCENARIOS: Record<ScenarioKey, Scenario> = {
-  short: {
-    key: "short",
-    label: "Неделя",
-    days: data.scenarios.short.days as number,
-    capital: data.scenarios.short.capital as number,
-    mandatoryTotal: data.scenarios.short.mandatoryTotal as number,
-    mandatoryMode: data.scenarios.short.mandatoryMode as "once",
-    salary: data.scenarios.short.salary as number,
-    salaryDay: data.scenarios.short.salaryDay as number,
-    phoneDay: data.scenarios.short.phoneDay as number,
-    giftDay: data.scenarios.short.giftDay as number,
-    blizzardDay: data.scenarios.short.blizzardDay as number,
-    weeklyShiftCap: data.scenarios.short.weeklyShiftCap as number,
-    hungerDecay: data.scenarios.short.hungerDecay as number,
-    hygieneDecay: data.scenarios.short.hygieneDecay as number,
-    solomonDecay: data.scenarios.short.solomonDecay as number,
-    cleanlinessDecay: data.scenarios.short.cleanlinessDecay as number,
-  },
-  long: {
-    key: "long",
-    label: "Месяц",
-    days: data.scenarios.long.days as number,
-    capital: data.scenarios.long.capital as number,
-    mandatoryTotal: data.scenarios.long.mandatoryTotal as number,
-    mandatoryMode: data.scenarios.long.mandatoryMode as "weekly",
-    salary: data.scenarios.long.salary as number,
-    salaryDay: data.scenarios.long.salaryDay as number,
-    phoneDay: data.scenarios.long.phoneDay as number,
-    giftDay: data.scenarios.long.giftDay as number,
-    blizzardDay: data.scenarios.long.blizzardDay as number,
-    weeklyShiftCap: data.scenarios.long.weeklyShiftCap as number,
-    hungerDecay: data.scenarios.long.hungerDecay as number,
-    hygieneDecay: data.scenarios.long.hygieneDecay as number,
-    solomonDecay: data.scenarios.long.solomonDecay as number,
-    cleanlinessDecay: data.scenarios.long.cleanlinessDecay as number,
-  },
-};
+function makeScenario(
+  key: ScenarioKey,
+  raw: Record<string, number | number[] | string>,
+): Scenario {
+  return {
+    key,
+    label: raw.label as string,
+    days: raw.days as number,
+    capital: raw.capital as number,
+    housingDeadline: raw.housingDeadline as number,
+    internetTrialDays: raw.internetTrialDays as number,
+    internetDays: raw.internetDays as number,
+    transitDays: raw.transitDays as number,
+    laundryEveryDays: raw.laundryEveryDays as number,
+    phoneDay: raw.phoneDay as number,
+    giftDay: raw.giftDay as number,
+    snowDays: raw.snowDays as number[],
+    weeklyShiftCap: raw.weeklyShiftCap as number,
+    hungerDecay: raw.hungerDecay as number,
+    cleanlinessDecay: raw.cleanlinessDecay as number,
+  };
+}
+
+/** Режимы игры — из данных: добавить режим = добавить запись в JSON. */
+export const SCENARIOS = Object.fromEntries(
+  (Object.keys(data.scenarios) as ScenarioKey[]).map((key) => [
+    key,
+    makeScenario(key, data.scenarios[key]),
+  ]),
+) as Record<ScenarioKey, Scenario>;
 
 /** Типы событий, которые нужно закрыть выбором, — по сценарию. */
 export function eventsForScenario(key: ScenarioKey): GameEvent[] {
-  const scenario = SCENARIOS[key];
+  const current = SCENARIOS[key];
   return EVENTS.map((event) => {
-    if (event.id === "phone") return { ...event, day: scenario.phoneDay };
-    if (event.id === "gift") return { ...event, day: scenario.giftDay };
-    if (event.id === "blizzard") return { ...event, day: scenario.blizzardDay };
+    if (event.id === "phone") return { ...event, day: current.phoneDay };
+    if (event.id === "gift") return { ...event, day: current.giftDay };
     return event;
   }).filter((event) => event.day > 0);
 }
@@ -320,8 +334,8 @@ export function spendById(id: string): Spend | undefined {
   return SPENDS.find((spend) => spend.id === id);
 }
 
-export function itemById(id: string): Item | undefined {
-  return ITEMS.find((item) => item.id === id);
+export function transportById(id: string): Transport | undefined {
+  return TRANSPORTS.find((item) => item.id === id);
 }
 
 export function professionById(id: string): Profession {
@@ -330,9 +344,22 @@ export function professionById(id: string): Profession {
 
 /** Категория статьи расходов для траты. */
 export function categoryForSpend(id: string): SpendCategory {
-  return ENTERTAINMENT_SPENDS.includes(id)
-    ? "развлечения"
-    : "быт";
+  return spendById(id)?.category ?? "быт";
 }
+
+/**
+ * Сколько обязательных расходов нужно покрыть за игру: жильё и интернет.
+ *
+ * Жильё платится один раз, интернет — на период: в коротком режиме период
+ * равен всей игре, поэтому сумма одна и та же.
+ */
+export const OBLIGATORY_TOTAL = SPENDS.filter(
+  (spend) => spend.id === "housing" || spend.id === "internet",
+).reduce((sum, spend) => sum + spend.cost, 0);
+
+/** Еда — то, чем игрок завтракает и обедает. */
+export const FOOD_SPENDS: string[] = SPENDS.filter((spend) =>
+  spend.id.startsWith("food-"),
+).map((spend) => spend.id);
 
 export type { ExpenseAudit };

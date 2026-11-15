@@ -2,7 +2,7 @@ import { RULES, SCENARIOS } from "../data/scenario";
 import type { GameState } from "./types";
 
 /**
- * Шкалы: ежедневный спад, множитель дохода, выгорание, связь с Соломоном.
+ * Шкалы: ежедневный спад, множитель дохода, выгорание, сон.
  *
  * Правило «настроение влияет на доход» нельзя размазывать по UI — поэтому
  * весь расчёт живёт здесь. Повторяет `scripts/balance_sim.py`.
@@ -47,7 +47,7 @@ export function isBurntOut(mood: number): boolean {
  *
  * Обрезка живёт в ядре, а не только при отрисовке (`ScalePanel`). Пока шкала
  * может уйти за потолок, доход считается от неверного значения (при настроении
- * 150 курьер даёт 2 000 ₽ вместо 1 600), а игрок видит одно число, а модель —
+ * 150 курьер давал 2 000 ₽ вместо 1 600), а игрок видит одно число, а модель —
  * другое. Это самый дорогой вид расхождения в обучающей игре.
  */
 export function clampScales(state: GameState): void {
@@ -55,8 +55,6 @@ export function clampScales(state: GameState): void {
   scales.mood = Math.max(0, Math.min(100, scales.mood));
   scales.energy = Math.max(0, Math.min(100, scales.energy));
   scales.hunger = Math.max(0, Math.min(100, scales.hunger));
-  scales.hygiene = Math.max(0, Math.min(100, scales.hygiene));
-  scales.solomon = Math.max(0, Math.min(100, scales.solomon));
   scales.cleanliness = Math.max(0, Math.min(100, scales.cleanliness));
 }
 
@@ -107,55 +105,34 @@ export function decay(state: GameState): string[] {
   const notes: string[] = [];
 
   scales.hunger = Math.max(0, scales.hunger - scenario.hungerDecay);
-  const hygieneDecay = state.items.includes("washer")
-    ? Math.floor(scenario.hygieneDecay / 2)
-    : scenario.hygieneDecay;
-  scales.hygiene = Math.max(0, scales.hygiene - hygieneDecay);
+  scales.cleanliness = Math.max(
+    0,
+    scales.cleanliness - scenario.cleanlinessDecay,
+  );
 
-  scales.mood -= RULES.boringDaily;
+  // Настроение общее: и скука, и брошенный Соломон бьют по нему.
+  scales.mood -= RULES.boringDaily + RULES.petNeglectMood;
   notes.push(`настроение −${RULES.boringDaily}: скука`);
+  notes.push(
+    `настроение −${RULES.petNeglectMood}: Соломон скучает без ухода`,
+  );
   if (scales.hunger === 0) {
     scales.mood -= RULES.hungerPenalty;
     notes.push(`настроение −${RULES.hungerPenalty}: голод`);
   }
-  if (scales.hygiene === 0) {
+  if (scales.cleanliness === 0) {
     scales.mood -= RULES.hygienePenalty;
     notes.push(`настроение −${RULES.hygienePenalty}: грязь`);
-  }
-  if (state.cash < 0) {
-    scales.mood -= RULES.debtDailyMoodPenalty;
-    notes.push(`настроение −${RULES.debtDailyMoodPenalty}: долг`);
   }
   if (state.savings >= RULES.saveBonusAt) {
     scales.mood += RULES.saveBonus;
     notes.push(`настроение +${RULES.saveBonus}: подушка 4 000 ₽`);
   }
-  if (isGymActive(state)) {
-    scales.mood += 1;
-    notes.push("настроение +1: абонемент в зал");
-  }
-
-  // Соломон скучает без ухода, а несчастливый хозяин запускает его ещё сильнее.
-  // Грязный Соломон скучает сильнее: спрайт пачкается, и это видно игроку.
-  scales.cleanliness = Math.max(
-    0,
-    scales.cleanliness - scenario.cleanlinessDecay,
-  );
+  // Грязный Соломон — общая грязь: это видно на спрайте и бьёт по настроению.
   const dirt = dirtVariant(scales.cleanliness);
-  scales.solomon -= scenario.solomonDecay + dirt;
   if (dirt > 0) {
-    notes.push(`Соломон −${dirt}: грязный`);
-  }
-  if (scales.mood < RULES.gloomyOwnerMood) {
-    scales.solomon -= 2;
-    notes.push("Соломон −2: хозяин несчастен");
-  }
-  if (scales.solomon >= RULES.solomonUpAt) {
-    scales.mood += RULES.solomonUp;
-    notes.push(`настроение +${RULES.solomonUp}: довольный Соломон`);
-  } else if (scales.solomon <= 25) {
-    scales.mood += RULES.solomonDown;
-    notes.push(`настроение ${RULES.solomonDown}: Соломон грустит`);
+    scales.mood -= dirt;
+    notes.push(`настроение −${dirt}: Соломон грязный`);
   }
 
   clampScales(state);
@@ -163,32 +140,71 @@ export function decay(state: GameState): string[] {
 }
 
 /**
- * Действует ли абонемент в зал.
+ * Множители восстановления во сне.
  *
- * Абонемент имеет срок (2 недели с покупки): иначе 2 500 ₽ дают +1 настроения
- * каждый день навсегда — покупка не требует ни стратегии, ни действий.
+ * Сон восстанавливает энергию и сытость не полностью: качество сна зависит
+ * от двух вещей — насколько сыт хозяин и насколько чист Соломон.
+ *
+ * Голодный и грязный Соломон — это затяжная спираль: сон восстанавливает
+ * мало, поэтому на следующий день сил меньше, а еда и мытьё стоят денег
+ * и времени, которых тоже не хватает.
  */
-export function isGymActive(state: GameState): boolean {
-  if (!state.items.includes("gym")) return false;
-  const bought = state.itemDays.gym ?? state.day;
-  return state.day - bought < RULES.gymDays;
+export function sleepFactors(state: GameState): {
+  energy: number;
+  clean: number;
+} {
+  const scales = state.scales;
+  const clean =
+    scales.cleanliness >= RULES.cleanAt
+      ? RULES.cleanFactorGood
+      : scales.cleanliness > RULES.dirtyAt
+        ? RULES.cleanFactorWeak
+        : RULES.cleanFactorBad;
+  return { energy: clean, clean };
 }
 
 /**
- * Сон: возвращает энергию и немного поднимает настроение.
+ * Сон: возвращает энергию и сытость и немного поднимает настроение.
  *
- * Не чаще раза в день: сон даёт +45 энергии бесплатно, а без ограничения
+ * Не чаще раза в день: сон даёт до 60 энергии бесплатно, а без ограничения
  * энергия становится неограниченным ресурсом и обходит все остальные лимиты
  * вместе с собой. Лимит — именно суточный счётчик, а не следствие энергии:
  * иначе «сон → энергия → снова сон» снова станет бесконечным циклом.
+ *
+ * Сон — обязательное условие конца дня: без него день не закрывается.
  */
 export function sleep(state: GameState): string {
   if (state.sleepsToday >= RULES.sleepPerDay) {
     return "сон уже был сегодня";
   }
   state.sleepsToday += 1;
-  state.scales.energy = Math.min(100, state.scales.energy + RULES.sleepEnergy);
+  const factors = sleepFactors(state);
+  const energy = Math.round(RULES.sleepEnergy * factors.energy);
+  // Сон не восстанавливает сытость — наоборот, опускает её.
+  const hungerLoss = Math.min(state.scales.hunger, RULES.sleepHunger);
+  state.scales.energy = Math.min(100, state.scales.energy + energy);
+  state.scales.hunger = Math.max(0, state.scales.hunger - hungerLoss);
   state.scales.mood = Math.min(100, state.scales.mood + RULES.sleepMood);
   clampScales(state);
+  const notes: string[] = [`сон: энергия +${energy}, сытость −${hungerLoss}`];
+  if (factors.clean < RULES.cleanFactorGood) {
+    notes.push(
+      `сон хуже обычного: Соломон ${dirtLabel(state.scales.cleanliness)} (×${factors.clean})`,
+    );
+  }
+  state.dayNotes.push(...notes);
   return "сон";
+}
+
+/** Пары: обязательный блок дня, который отнимает силы. */
+export function classes(state: GameState): string[] {
+  const notes: string[] = [];
+  state.scales.energy = Math.max(
+    0,
+    state.scales.energy - RULES.classesEnergyCost,
+  );
+  state.scales.mood = Math.max(0, state.scales.mood - RULES.classesMoodCost);
+  notes.push(`энергия −${RULES.classesEnergyCost}: пары`);
+  clampScales(state);
+  return notes;
 }

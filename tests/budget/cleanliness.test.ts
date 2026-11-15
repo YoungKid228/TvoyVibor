@@ -6,11 +6,11 @@ import {
   createInitialState,
   endDay,
   normalizeState,
-  resolveEvent,
   spendBlockReason,
   startDay,
 } from "../../src/budget/core/reducer";
 import { dirtFromCleanliness, spriteKey } from "../../src/budget/components/SolomonSprite";
+import { freeTimeState } from "./helpers";
 
 /**
  * Механика загрязнения Соломона.
@@ -57,21 +57,22 @@ describe("вариант спрайта по загрязнению", () => {
   });
 });
 
-describe("грязь влияет на настроение Соломона", () => {
-  it("грязный Соломон теряет настроение быстрее", () => {
+describe("грязь влияет на настроение", () => {
+  it("грязный Соломон отнимает настроение быстрее", () => {
     const clean = createInitialState("short");
     const dirty = createInitialState("short");
     dirty.scales.cleanliness = 0;
 
-    clean.scales.solomon = 80;
-    dirty.scales.solomon = 80;
+    clean.scales.mood = 80;
+    dirty.scales.mood = 80;
     startDay(clean);
     startDay(dirty);
 
-    // Спад за день: базовый solomon_decay плюс штраф за грязь.
-    const base = SCENARIOS.short.solomonDecay;
-    expect(clean.scales.solomon).toBeCloseTo(80 - base, 5);
-    expect(dirty.scales.solomon).toBeCloseTo(80 - base - 2, 5);
+    // Спад за день: скука и брошенный Соломон. Грязный Соломон отнимает
+    // ещё 2 за грязь и 3 за полностью грязное состояние.
+    const base = RULES.boringDaily + RULES.petNeglectMood;
+    expect(clean.scales.mood).toBeCloseTo(80 - base, 5);
+    expect(dirty.scales.mood).toBeCloseTo(80 - base - 2 - 3, 5);
   });
 
   it("игрок видит причину падения в журнале дня", () => {
@@ -84,7 +85,7 @@ describe("грязь влияет на настроение Соломона", (
 
 describe("мытьё Соломона", () => {
   it("стоит 200 ₽ и возвращает чистоту", () => {
-    const state = createInitialState("short");
+    const state = freeTimeState();
     state.scales.cleanliness = 10;
     const cashBefore = state.cash;
 
@@ -95,8 +96,7 @@ describe("мытьё Соломона", () => {
   });
 
   it("не чаще раза в день", () => {
-    const state = createInitialState("short");
-    startDay(state);
+    const state = freeTimeState();
 
     expect(spendBlockReason(state, "wash")).toBeNull();
     buy(state, "wash");
@@ -105,8 +105,7 @@ describe("мытьё Соломона", () => {
   });
 
   it("суточный счётчик обнуляется на следующий день", () => {
-    const state = createInitialState("short");
-    startDay(state);
+    const state = freeTimeState();
     buy(state, "wash");
     expect(state.washesToday).toBe(1);
 
@@ -117,8 +116,7 @@ describe("мытьё Соломона", () => {
   });
 
   it("счётчик мытья сохраняется при перезагрузке", () => {
-    const state = createInitialState("short");
-    startDay(state);
+    const state = freeTimeState();
     buy(state, "wash");
 
     const loaded = normalizeState(JSON.parse(JSON.stringify(state)));
@@ -127,10 +125,8 @@ describe("мытьё Соломона", () => {
   });
 
   it("вымытый Соломон довольнее запущенного", () => {
-    const washed = createInitialState("short");
-    const neglected = createInitialState("short");
-    startDay(washed);
-    startDay(neglected);
+    const washed = freeTimeState();
+    const neglected = freeTimeState();
     washed.scales.cleanliness = 0;
     neglected.scales.cleanliness = 0;
     buy(washed, "wash");
@@ -141,18 +137,14 @@ describe("мытьё Соломона", () => {
 });
 
 describe("чистота в сценариях", () => {
-  it("Соломон пачкается одинаково в обоих режимах", () => {
+  it("Соломон пачкается на 15 в день", () => {
     expect(SCENARIOS.short.cleanlinessDecay).toBe(15);
-    expect(SCENARIOS.long.cleanlinessDecay).toBe(15);
   });
 
   it("за неделю без мытья Соломон становится сильно грязным", () => {
     const state = createInitialState("short");
     for (let day = 0; day < 5; day += 1) {
       startDay(state);
-      // Снегопад на 4-й день останавливает дневной цикл до спада шкал:
-      // событие нужно закрыть, иначе день не отработает.
-      if (state.pendingEvent) resolveEvent(state, "bus");
       endDay(state, state.dayActions);
     }
     // 100 − 15 × 5 = 25 — это уже «сильно грязный» (порог 33).

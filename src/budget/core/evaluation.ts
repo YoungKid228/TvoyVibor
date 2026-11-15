@@ -1,4 +1,4 @@
-import { RULES, SCENARIOS } from "../data/scenario";
+import { OBLIGATORY_TOTAL } from "../data/scenario";
 import { finalBalance } from "./finance";
 import { pythonRound } from "./rounding";
 import type { ExpenseAudit, GameState, GameStats } from "./types";
@@ -24,22 +24,14 @@ export function moodGrade(mood: number): string {
   return "Настроение плохое";
 }
 
-/** Оценка качества жизни по настроению Соломона. */
-export function solomonGrade(solomon: number): string {
-  if (solomon >= 75) return "Соломон доволен";
-  if (solomon >= 50) return "Соломон спокоен";
-  if (solomon >= 25) return "Соломон скучает";
-  return "Соломон грустит";
-}
-
-/** Итоговый вердикт: деньги И качество жизни. Худшее из двух. */
-export function overallGrade(balance: number, solomon: number): string {
-  const moneyOk = balance >= 3000;
-  const solomonOk = solomon >= RULES.solomonHappy;
-  if (moneyOk && solomonOk) return "Успех: и деньги есть, и Соломон счастлив";
-  if (moneyOk) return "Деньги есть, но Соломон несчастлив";
-  if (solomonOk) return "Соломон счастлив, но денег нет";
-  return "Провал: ни денег, ни счастья";
+/** Итоговый вердикт: деньги И настроение. Худшее из двух. */
+export function overallGrade(balance: number, mood: number): string {
+  const moneyOk = balance >= 7000;
+  const moodOk = mood >= 50;
+  if (moneyOk && moodOk) return "Успех: и деньги есть, и настроение хорошее";
+  if (moneyOk) return "Деньги есть, но настроение провалилось";
+  if (moodOk) return "Настроение хорошее, но денег нет";
+  return "Провал: ни денег, ни настроения";
 }
 
 /**
@@ -50,7 +42,6 @@ export function overallGrade(balance: number, solomon: number): string {
  * расход, а перевод денег в резерв.
  */
 export function expenseAudit(state: GameState): ExpenseAudit {
-  const scenario = SCENARIOS[state.scenarioKey];
   const items = state.spentByCategory;
   const spentTotal = Object.entries(items)
     .filter(([key]) => key !== "накопления")
@@ -60,7 +51,7 @@ export function expenseAudit(state: GameState): ExpenseAudit {
   const share = spentTotal > 0 ? discretionary / spentTotal : 0;
 
   const checks = {
-    obligatoryCovered: obligatory >= scenario.mandatoryTotal,
+    obligatoryCovered: obligatory >= OBLIGATORY_TOTAL,
     optionalShare: pythonRound(share, 3),
     noDebt: state.cash >= 0,
     hasSavings: state.savings >= 2000,
@@ -108,8 +99,9 @@ export function stats(state: GameState): GameStats {
   const entries = state.log;
   const avgMood =
     entries.reduce((sum, entry) => sum + entry.mood, 0) / (entries.length || 1);
-  const avgSolomon =
-    entries.reduce((sum, entry) => sum + entry.solomon, 0) / (entries.length || 1);
+  const avgCleanliness =
+    entries.reduce((sum, entry) => sum + entry.cleanliness, 0) /
+    (entries.length || 1);
   const balance = finalBalance(state);
   const audit = expenseAudit(state);
 
@@ -118,14 +110,13 @@ export function stats(state: GameState): GameStats {
     cash: state.cash,
     savings: state.savings,
     avgMood: pythonRound(avgMood, 1),
-    avgSolomon: pythonRound(avgSolomon, 1),
+    avgCleanliness: pythonRound(avgCleanliness, 1),
     shifts: state.shifts,
     income: state.income,
     expenses: state.expenses,
     moneyGrade: moneyGrade(balance),
     moodGrade: moodGrade(Math.round(avgMood)),
-    solomonGrade: solomonGrade(Math.round(avgSolomon)),
-    verdict: overallGrade(balance, Math.round(avgSolomon)),
+    verdict: overallGrade(balance, Math.round(avgMood)),
     audit,
   };
 }

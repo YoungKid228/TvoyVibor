@@ -116,7 +116,8 @@ def table_by_header(doc: str, *header: str, after: str = "") -> list:
     """
     wanted = [h.lower() for h in header]
     started = not after
-    for line in doc.splitlines():
+    lines = doc.splitlines()
+    for index, line in enumerate(lines):
         stripped = line.strip()
         if not started:
             if stripped.startswith("#") and after.lower() in stripped.lower():
@@ -128,16 +129,17 @@ def table_by_header(doc: str, *header: str, after: str = "") -> list:
                 continue
             head = [c.lower() for c in cells]
             if all(w in head for w in wanted):
-                return [cells] + _collect_rows(doc, line)
+                # Строки собираем с текущего места, а не через index() по тексту:
+                # у короткого и длинного режимов заголовки совпадают, и поиск
+                # первой копии дал бы таблицу не того режима.
+                return [cells] + _rows_from(lines, index + 1)
     raise LookupError(f"в документе нет таблицы с заголовком {header}")
 
 
-def _collect_rows(doc: str, header_line: str) -> list:
-    """Собрать строки таблицы, начинающейся с указанной строки заголовка."""
+def _rows_from(lines: list, start: int) -> list:
+    """Собрать строки таблицы, идущие после строки с индексом start."""
     rows = []
-    lines = doc.splitlines()
-    start = lines.index(header_line)
-    for line in lines[start + 1:]:
+    for line in lines[start:]:
         stripped = line.strip()
         if not (stripped.startswith("|") and stripped.endswith("|")):
             break
@@ -163,12 +165,12 @@ def row_by_label(table: list, label: str) -> list:
 
 # Сокращённые подписи вердиктов в документе ↔ полные из модели.
 VERDICT_FRAGMENTS = {
-    "Успех: и деньги есть, и Соломон счастлив": "Успех",
-    "Деньги есть, но Соломон несчастлив": "Деньги есть",
+    "Успех: и деньги есть, и настроение хорошее": "Успех",
+    "Деньги есть, но настроение провалилось": "Деньги есть",
     # Фрагмент должен быть ПОДСТРОКОЙ полного вердикта: в документе та же
     # формулировка встречается с эмодзи и без него, но всегда с «но».
-    "Соломон счастлив, но денег нет": "Соломон счастлив, но денег нет",
-    "Провал: ни денег, ни счастья": "Провал",
+    "Настроение хорошее, но денег нет": "Настроение хорошее, но денег нет",
+    "Провал: ни денег, ни настроения": "Провал",
 }
 
 AUDIT_FRAGMENTS = {
@@ -197,7 +199,7 @@ def check_fragment(label, column, cell, want, table) -> None:
 def check_short_table(doc: str) -> None:
     """Раздел 11: короткий режим — итоги стратегий и разбор расходов."""
     table = table_by_header(doc, "баланс", "кошелёк", "подушка", "смен",
-                            after="Короткий режим (7 дней)")
+                            after="Неделя (7 дней)")
     for name, policy in b.POLICIES.items():
         s = b.stats(b.Game(b.SHORT, 11).run(policy))
         row = row_by_label(table, name)
@@ -205,12 +207,12 @@ def check_short_table(doc: str) -> None:
         check_cell(name, "кошелёк", num(row[2]), s["кошелёк"])
         check_cell(name, "подушка", num(row[3]), s["подушка"])
         check_cell(name, "ср. настроение", num(row[4]), s["среднее_настроение"], 0.05)
-        check_cell(name, "ср. Соломон", num(row[5]), s["средний_белка"], 0.05)
+        check_cell(name, "ср. чистота", num(row[5]), s["средняя_чистота"], 0.05)
         check_cell(name, "смен", num(row[6]), s["смен"])
         check_fragment(name, "вердикт", row[7], s["итог"], VERDICT_FRAGMENTS)
 
     audit = table_by_header(doc, "доля необязательных", "вердикт проверки",
-                            after="Короткий режим (7 дней)")
+                            after="Неделя (7 дней)")
     for name, policy in b.POLICIES.items():
         s = b.stats(b.Game(b.SHORT, 11).run(policy))
         row = row_by_label(audit, name)
@@ -220,66 +222,21 @@ def check_short_table(doc: str) -> None:
                        s["аудит"]["вердикт"], AUDIT_FRAGMENTS)
 
 
-def check_long_table(doc: str) -> None:
-    """Раздел 11: длинный режим — итоги стратегий."""
-    table = table_by_header(doc, "баланс", "кошелёк", "подушка", "ср. соломон",
-                            after="Длинный режим (28 дней)")
-    for name, policy in b.POLICIES.items():
-        s = b.stats(b.Game(b.LONG, 11).run(policy))
-        row = row_by_label(table, name)
-        check_cell(name, "баланс", num(row[1]), s["итоговый_баланс"])
-        check_cell(name, "кошелёк", num(row[2]), s["кошелёк"])
-        check_cell(name, "подушка", num(row[3]), s["подушка"])
-        check_cell(name, "ср. настроение", num(row[4]), s["среднее_настроение"], 0.05)
-        check_cell(name, "ср. Соломон", num(row[5]), s["средний_белка"], 0.05)
-        check_fragment(name, "вердикт", row[6], s["итог"], VERDICT_FRAGMENTS)
-
-
 def check_week_table(doc: str) -> None:
     """Раздел 11: ход недели стратегии «Баланс»."""
-    table = table_by_header(doc, "день", "кошелёк", "подушка", "энерг.",
+    table = table_by_header(doc, "день", "кошелёк", "подушка", "энергия",
                             after="Ход недели")
     game = b.Game(b.SHORT, 11).run(b.policy_balanced)
     for entry in game.log:
-        day, cash, savings, mood, energy, solomon = entry[:6]
+        day, cash, savings, mood, energy, cleanliness = entry[:6]
         row = row_by_label(table, str(day))
         check_cell(f"день {day}", "кошелёк", num(row[1]), cash)
         check_cell(f"день {day}", "подушка", num(row[2]), savings)
         check_cell(f"день {day}", "настроение", num(row[3]), mood)
         check_cell(f"день {day}", "энергия", num(row[4]), energy)
-        check_cell(f"день {day}", "Соломон", num(row[5]), solomon, 0.05)
-        # Колонка чистоты: насколько опрятен питомец в конце дня.
-        check_cell(f"день {day}", "чистота", num(row[6]), entry[10])
-        # Колонка «Действия» переписана по-русски, поэтому сверяем набор чисел:
-        # каждое число из документа должно встречаться в действиях модели.
-        model_numbers = set()
-        for part in entry[8].split(";"):
-            model_numbers |= numbers_in(part)
-        for value in numbers_in(row[7]):
-            if value not in model_numbers:
-                fail.append(
-                    f"день {day}: в колонке «Действия» число {value}, "
-                    f"которого нет в действиях модели ({entry[8]})"
-                )
-
-
-def check_professions_table(doc: str) -> None:
-    """Раздел 12: профессии — баланс, настроение и Соломон против модели."""
-    table = table_by_header(doc, "профессия", "перевес", "баланс", "настроение")
-    labels = {
-        "none": "Без профессии",
-        "student": "Студент",
-        "courier": "Курьер",
-        "engineer": "Инженер",
-        "creative": "Творческий",
-    }
-    for prof, label in labels.items():
-        s = b.stats(b.Game(b.SHORT, 11, prof).run(b.policy_balanced))
-        row = row_by_label(table, label)
-        check_cell(label, "баланс", num(row[2]), s["итоговый_баланс"])
-        check_cell(label, "настроение", num(row[3]), s["среднее_настроение"], 0.05)
-        check_cell(label, "Соломон", num(row[4]), s["средний_белка"], 0.05)
-        check_fragment(label, "вердикт", row[5], s["итог"], VERDICT_FRAGMENTS)
+        check_cell(f"день {day}", "чистота", num(row[5]), cleanliness, 0.05)
+        # Сытость: сколько игрок поел.
+        check_cell(f"день {day}", "сытость", num(row[6]), entry[6])
 
 
 # ---------------------------------------------------------------------------
@@ -291,10 +248,12 @@ def check_json(data: dict) -> None:
         if job["id"] not in b.JOBS:
             fail.append(f"в JSON есть заработок {job['id']}, которого нет в модели")
             continue
-        # b.JOBS: (база, энергия, настроение, условие, лимит)
-        pay, energy, mood, req, limit = b.JOBS[job["id"]]
-        if (job["pay"], job["energyCost"], job["moodCost"], job["limit"]) != (pay, energy, mood, limit):
-            fail.append(f"заработок {job['id']}: JSON {(job['pay'], job['energyCost'], job['moodCost'], job['limit'])} != модель {(pay, energy, mood, limit)}")
+        # b.JOBS: (база, энергия, настроение, минуты, условие, лимит)
+        pay, energy, mood, minutes, req, limit = b.JOBS[job["id"]]
+        got = (job["pay"], job["energyCost"], job["moodCost"], job["minutes"], job["limit"])
+        want = (pay, energy, mood, minutes, limit)
+        if got != want:
+            fail.append(f"заработок {job['id']}: JSON {got} != модель {want}")
         if job["requires"] != req:
             fail.append(f"заработок {job['id']}: условие доступа JSON {job['requires']} != модель {req}")
 
@@ -302,11 +261,16 @@ def check_json(data: dict) -> None:
         if spend["id"] not in b.SPEND:
             fail.append(f"в JSON есть трата {spend['id']}, которой нет в модели")
             continue
-        cost, mood, energy, hunger, hyg, rep, sol = b.SPEND[spend["id"]]
-        got = (spend["cost"], spend["moodGain"], spend["energyCost"], spend["hungerGain"],
-               spend["hygieneGain"], spend["repGain"], spend["solomonGain"])
-        if got != (cost, mood, energy, hunger, hyg, rep, sol):
-            fail.append(f"трата {spend['id']}: JSON {got} != модель {(cost, mood, energy, hunger, hyg, rep, sol)}")
+        (cost, minutes, mood, energy_d, energy_g, food_d, clean_d, rep_d,
+         category, prepares, req) = b.SPEND[spend["id"]]
+        got = (spend["cost"], spend["minutes"], spend["moodGain"], spend["energyCost"],
+               spend["energyGain"], spend["hungerGain"], spend["cleanlinessGain"],
+               spend["repGain"], spend["category"],
+               spend["preparesMeal"], spend["requires"])
+        want = (cost, minutes, mood, energy_d, energy_g, food_d, clean_d, rep_d,
+                category, prepares, req)
+        if got != want:
+            fail.append(f"трата {spend['id']}: JSON {got} != модель {want}")
 
     for item in data["items"]:
         if item["id"] not in b.ITEMS:
@@ -322,53 +286,58 @@ def check_json(data: dict) -> None:
             fail.append(f"в JSON нет профессии {prof_id}")
             continue
         json_prof = json_profs[prof_id]
-        want = (model_prof["rep"], model_prof["shifts"], model_prof["mood"], model_prof["salary"])
+        want = (model_prof["rep"], model_prof["shifts"], model_prof["mood"], model_prof["pay"])
         got = (json_prof["repBonus"], json_prof["shiftBonus"], json_prof["moodBonus"], json_prof["payBonus"])
         if got != want:
             fail.append(
-                f"профессия {prof_id}: JSON (rep, shifts, mood, salary) {got} "
+                f"профессия {prof_id}: JSON (rep, shifts, mood, pay) {got} "
                 f"!= модель {want}"
             )
     for prof_id in json_profs:
         if prof_id not in b.PROFESSIONS:
             fail.append(f"в JSON есть профессия {prof_id}, которой нет в модели")
 
-    for key, scenario in (("short", b.SHORT), ("long", b.LONG)):
+    for key, scenario in (("short", b.SHORT),):
         sc = data["scenarios"][key]
         for field, val in (("capital", scenario.capital),
-                           ("mandatoryTotal", scenario.mandatory_total),
-                           ("salary", scenario.salary),
-                           ("salaryDay", scenario.salary_day),
+                           ("housingDeadline", scenario.housing_deadline),
+                           ("internetTrialDays", scenario.internet_trial_days),
+                           ("internetDays", scenario.internet_days),
+                           ("transitDays", scenario.transit_days),
+                           ("laundryEveryDays", scenario.laundry_every_days),
                            ("phoneDay", scenario.phone_day),
                            ("giftDay", scenario.gift_day),
-                           ("blizzardDay", scenario.blizzard_day),
+                           ("snowDays", list(scenario.snow_days)),
                            ("days", scenario.days),
                            ("weeklyShiftCap", scenario.weekly_shift_cap),
                            ("hungerDecay", scenario.hunger_decay),
-                           ("hygieneDecay", scenario.hygiene_decay),
-                           ("solomonDecay", scenario.solomon_decay),
-                           ("cleanlinessDecay", scenario.cleanliness_decay),
-                           ("mandatoryMode", scenario.mandatory_mode)):
+                           ("cleanlinessDecay", scenario.cleanliness_decay)):
             if sc[field] != val:
                 fail.append(f"сценарий {key}.{field}: JSON {sc[field]} != модель {val}")
 
     for ev in data["events"]:
-        if ev["id"] == "blizzard":
-            model_opts = {"taxi": (400, -2, 0), "bus": (0, -1, 0), "walk": (0, -3, 15)}
-            for opt in ev["options"]:
-                want = model_opts[opt["id"]]
-                got = (opt["cost"], opt.get("moodGain", 0), opt.get("energyCost", 0))
-                if got != want:
-                    fail.append(f"опция снегопада {opt['id']}: JSON {got} != модель {want}")
+        if ev["id"] == "phone":
+            model_opts = b.PHONE_OPTIONS
+        elif ev["id"] == "gift":
+            model_opts = b.GIFT_OPTIONS
+        else:
+            fail.append(f"в JSON есть неизвестное событие {ev['id']}")
+            continue
+        for opt in ev["options"]:
+            want = model_opts[opt["id"]]
+            got = (opt["cost"], opt.get("moodGain", 0))
+            if got != want:
+                fail.append(f"опция события {ev['id']}/{opt['id']}: JSON {got} != модель {want}")
 
     # Правила: JSON ↔ эталон. Лимиты сна и поглаживаний — это правила игры,
     # и они тоже должны совпадать в обоих источниках.
     rules = data["rules"]
-    for field, val in (("weeklyShiftCap", b.WEEKLY_SHIFT_CAP),
+    for field, val in (("weeklyShiftCap", b.SHORT.weekly_shift_cap),
                        ("burnoutMood", b.BURNOUT_MOOD),
                        ("boringDaily", b.BORING),
                        ("sleepMood", b.SLEEP_MOOD),
-                       ("sleepEnergy", 45),
+                       ("sleepEnergy", b.SLEEP_ENERGY),
+                       ("sleepHunger", b.SLEEP_HUNGER),
                        ("sleepPerDay", b.SLEEP_PER_DAY),
                        ("petPerDay", b.PET_PER_DAY),
                        ("washPerDay", b.WASH_PER_DAY),
@@ -376,18 +345,25 @@ def check_json(data: dict) -> None:
                        ("dirtyAt", b.DIRTY_AT),
                        ("cleanlinessDecay", b.SHORT.cleanliness_decay),
                        ("repCap", b.REP_CAP),
-                       ("gymDays", b.GYM_DAYS),
                        ("saveBonusAt", 4000),
                        ("saveBonus", b.SAVE_BONUS),
-                       ("solomonUpAt", 60),
-                       ("solomonUp", b.SOLOMON_UP),
-                       ("solomonDown", b.SOLOMON_DOWN),
-                       ("gloomyOwnerMood", b.GLOOMY_OWNER_MOOD),
-                       ("solomonHappy", b.SOLOMON_HAPPY),
-                       ("creditMoodPenalty", b.CREDIT_MOOD_PENALTY),
-                       ("debtDailyMoodPenalty", 3),
-                       ("hungerPenalty", 5),
-                       ("hygienePenalty", 3)):
+                       ("hungerPenalty", b.HUNGER_PENALTY),
+                       ("hygienePenalty", b.HYGIENE_PENALTY),
+                       ("classesEnergyCost", b.CLASSES_ENERGY_COST),
+                       ("classesMoodCost", b.CLASSES_MOOD_COST),
+                       ("classesMinutes", b.CLASSES_MINUTES),
+                       ("lessonStreakForTutor", b.LESSON_STREAK_FOR_TUTOR),
+                       ("lessonMoodGain", b.LESSON_MOOD_GAIN),
+                       ("missedLessonMood", b.MISSED_LESSON_MOOD),
+                       ("lessonProblemsAfter", b.LESSON_PROBLEMS_AFTER),
+                       ("moodForFun", b.MOOD_FOR_FUN),
+                       ("neglectHunger", b.NEGLECT_HUNGER),
+                       ("neglectDaysToLose", b.NEGLECT_DAYS_TO_LOSE),
+                       ("cleanFactorGood", b.CLEAN_FACTOR_GOOD),
+                       ("cleanFactorWeak", b.CLEAN_FACTOR_WEAK),
+                       ("cleanFactorBad", b.CLEAN_FACTOR_BAD),
+                       ("mealsPerDay", b.MEALS_PER_DAY),
+                       ("petNeglectMood", b.PET_NEGLECT_MOOD)):
         if rules[field] != val:
             fail.append(f"правило {field}: JSON {rules[field]} != модель {val}")
 
@@ -406,55 +382,101 @@ def check_json(data: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def check_content(doc: str) -> None:
-    # Биробиджанская механика: заработки, траты, событие «снегопад».
-    job_labels = {"market": "Центральном рынке", "hegan": "гостей из Хэгана",
-                  "dorm": "общежитии"}
+    # Три заработка и три уровня еды — как в игре.
+    job_labels = {"courier": "Курьерская доставка", "tutor": "Репетиторство",
+                  "lab": "Лаборант в университете"}
     for job, label in job_labels.items():
         if job not in b.JOBS:
-            fail.append(f"нет биробиджанского заработка {job}")
+            fail.append(f"нет заработка {job}")
         elif label not in doc:
             fail.append(f"заработок {job} ({label}) не описан в документе")
 
-    spend_labels = {"schnitzel": "Шницель по-биробиджански", "matza": "Матца и хумус",
-                    "breakfast": "Кефир и бублики", "dreidel": "Дрейдл на Арбате",
-                    "amulet": "Талесман", "festival": "Фестиваль еврейской культуры",
-                    "zoo": "Амурский тигр в зоопарке"}
-    for spend, label in spend_labels.items():
+    food_labels = {"food-cheap": "Своя еда", "food-fast": "Фастфуд",
+                   "food-luxe": "Хороший обед"}
+    for spend, label in food_labels.items():
         if spend not in b.SPEND:
-            fail.append(f"нет биробиджанской траты {spend}")
+            fail.append(f"нет уровня еды {spend}")
         elif label not in doc:
-            fail.append(f"трата {spend} ({label}) не описана в документе")
+            fail.append(f"уровень еды {spend} ({label}) не описан в документе")
 
-    if b.SHORT.blizzard_day != 4:
+    bill_labels = {"housing": "Жильё", "internet": "Интернет",
+                   "transit-pass": "Проездной", "laundry": "Стирка"}
+    for spend, label in bill_labels.items():
+        if spend not in b.SPEND:
+            fail.append(f"нет обязательного платежа {spend}")
+        elif label not in doc:
+            fail.append(f"обязательный платёж {spend} ({label}) не описан в документе")
+
+    # Расписание дня: утро, пары, свободное время, сон.
+    if b.DAY_START != 360:
+        fail.append("день должен начинаться в 06:00")
+    if b.CLASSES_START != 540 or b.CLASSES_END != 900:
+        fail.append("пары должны идти с 09:00 до 15:00")
+    if b.NIGHT != 1380:
+        fail.append("ночь должна наступать в 23:00")
+    for text in ("06:00", "09:00", "15:00", "23:00"):
+        if text not in doc:
+            fail.append(f"время {text} не описано в документе")
+
+    # Снегопад — погода, а не событие: пешком не дойдёшь, такси дороже.
+    if b.SHORT.snow_days != (4,):
         fail.append("снегопад должен быть на 4-й день короткого режима")
-    gb = b.Game(b.SHORT, 11)
-    gb.blizzard_choice = "taxi"
-    before_mood, before_energy = gb.mood, gb.energy
-    msg = gb.blizzard()
-    if "снегопад" not in msg:
-        fail.append("снегопад не вернул сообщение")
-    if gb.cash != 19600:
-        fail.append(f"снегопад на такси должен стоить 400 (кошелёк {gb.cash})")
-    if gb.mood != before_mood - 2:
-        fail.append("снегопад на такси должен стоить 2 настроения")
-    gb2 = b.Game(b.SHORT, 11)
-    gb2.blizzard_choice = "walk"
-    gb2.blizzard()
-    if gb2.energy != before_energy - 15:
-        fail.append(f"снегопад пешком должен стоить 15 энергии (стало {gb2.energy})")
-    gb3 = b.Game(b.SHORT, 11)
-    gb3.blizzard_choice = "bus"
-    gb3.blizzard()
-    if gb3.cash != 20000:
-        fail.append("снегопад на автобусе должен быть бесплатным")
+    snow = b.Game(b.SHORT, 11)
+    snow.current_day = 4
+    snow.start_day()
+    snow.buy("food-cheap")
+    if snow.choose_transport("walk") != "в метель пешком не дойдёшь":
+        fail.append("в снегопад пешком идти нельзя")
+    if snow.transport_cost("taxi") != b.TRANSPORT["taxi"][0] + 100:
+        fail.append("в снегопад такси должно стоить на 100 ₽ дороже")
 
-    for amount in ("700", "1 200", "450", "380", "200", "500", "600", "1 800", "400"):
-        if amount not in doc:
-            fail.append(f"биробиджанская сумма {amount} отсутствует в документе")
+    # Сон: восстанавливает энергию (зависит от чистоты) и опускает сытость.
+    sleeper = b.Game(b.SHORT, 11)
+    sleeper.start_day()
+    sleeper.buy("food-cheap")
+    sleeper.choose_transport("bus")
+    sleeper.hunger = 100
+    sleeper.cleanliness = 100
+    sleeper.energy = 0
+    sleeper.sleep()
+    if sleeper.energy != b.SLEEP_ENERGY:
+        fail.append(f"сон должен вернуть {b.SLEEP_ENERGY} энергии (стало {sleeper.energy})")
+    if sleeper.hunger != 100 - b.SLEEP_HUNGER:
+        fail.append(f"сон должен опустить сытость на {b.SLEEP_HUNGER} (стало {sleeper.hunger})")
+    dirty = b.Game(b.SHORT, 11)
+    dirty.start_day()
+    dirty.buy("food-cheap")
+    dirty.choose_transport("bus")
+    dirty.hunger = 100
+    dirty.cleanliness = 10
+    dirty.energy = 0
+    dirty.sleep()
+    want = round(b.SLEEP_ENERGY * b.CLEAN_FACTOR_BAD)
+    if dirty.energy != want:
+        fail.append(f"сон с сильно грязным Соломоном должен вернуть {want} (стало {dirty.energy})")
 
-    # Суммы из исходного документа.
-    for amount in ("20 000", "15 000", "12 500", "800", "1 500", "2 000",
-                   "4 000", "12 000", "5 000", "2 500", "500"):
+    # Еда: не больше двух приёмов в день, сытый Соломон не ест.
+    feeder = b.Game(b.SHORT, 11)
+    feeder.start_day()
+    feeder.buy("food-cheap")
+    feeder.choose_transport("bus")
+    feeder.buy("food-leftovers")
+    if feeder.meals_today != 2:
+        fail.append(f"за день должно быть 2 приёма пищи (стало {feeder.meals_today})")
+    reason = feeder.spend_block_reason("food-fast")
+    if not reason or "Соломон сыт" not in reason:
+        fail.append("третий приём пищи должен блокироваться: Соломон сыт")
+
+    # Долга нет: без денег трата не проходит.
+    broke = b.Game(b.SHORT, 11)
+    broke.cash = 100
+    broke.savings = 0
+    broke.start_day()
+    if "не хватает денег" not in broke.spend_block_reason("housing"):
+        fail.append("без денег трата должна блокироваться: не хватает денег")
+
+    # Суммы новой экономики.
+    for amount in ("3 500", "1 000", "6 000", "500", "120", "250", "100", "800", "200"):
         if amount not in doc:
             fail.append(f"сумма {amount} отсутствует в документе")
 
@@ -471,70 +493,66 @@ def check_content(doc: str) -> None:
                        (25, "Настроение так себе"), (24, "Настроение плохое")]:
         if b.mood_grade(mood) != want:
             fail.append(f"оценка настроения {mood}: {b.mood_grade(mood)} != {want}")
-    for solomon, want in [(75, "Соломон доволен"), (74, "Соломон спокоен"), (50, "Соломон спокоен"),
-                          (49, "Соломон скучает"), (25, "Соломон скучает"), (24, "Соломон грустит")]:
-        if b.solomon_grade(solomon) != want:
-            fail.append(f"оценка Соломона {solomon}: {b.solomon_grade(solomon)} != {want}")
-
     # Общий вердикт во всех четырёх комбинациях.
-    for bal, solomon, want in [(5000, 70, "Успех: и деньги есть, и Соломон счастлив"),
-                               (5000, 30, "Деньги есть, но Соломон несчастлив"),
-                               (1000, 70, "Соломон счастлив, но денег нет"),
-                               (1000, 30, "Провал: ни денег, ни счастья")]:
-        if b.overall_grade(bal, solomon) != want:
-            fail.append(f"вердикт ({bal},{solomon}): {b.overall_grade(bal, solomon)} != {want}")
+    for bal, mood, want in [(10000, 70, "Успех: и деньги есть, и настроение хорошее"),
+                            (10000, 30, "Деньги есть, но настроение провалилось"),
+                            (1000, 70, "Настроение хорошее, но денег нет"),
+                            (1000, 30, "Провал: ни денег, ни настроения")]:
+        if b.overall_grade(bal, mood) != want:
+            fail.append(f"вердикт ({bal},{mood}): {b.overall_grade(bal, mood)} != {want}")
 
     # Выгорание: смена при настроении < 25 оплачивается на 70 %.
     g = b.Game(b.SHORT)
     g.mood = 20
     g.energy = 100
-    gain = b.round50(b.JOBS["dishes"][0] * b.income_multiplier(20) * 0.7)
-    if g.work("dishes").find(f"+{gain}") < 0:
-        fail.append("смена в выгорании должна оплачиваться по ставке 0,7")
+    g.start_day()
+    g.buy("food-cheap")
+    g.choose_transport("bus")
+    # Настроение к моменту смены уже упало (скука, брошенный Соломон, еда),
+    # поэтому считаем выплату от фактического настроения.
+    mood_now = g.mood
+    gain = b.round50(b.JOBS["courier"][0] * b.income_multiplier(mood_now) * 0.7)
+    if g.work("courier").find(f"+{gain}") < 0:
+        fail.append(f"смена в выгорании должна оплачиваться по ставке 0,7 (ждали +{gain})")
 
-    # Недельный лимит смен: 4 смены любого вида, пятая — отказ.
+    # Недельный лимит смен: 10 смен любого вида, одиннадцатая — отказ.
     g = b.Game(b.SHORT)
     g.mood = 80
     g.energy = 100
-    for key in ("dishes", "dishes", "kafe", "dishes"):
-        g.work(key)
-    if g.shifts != 4:
-        fail.append(f"недельный лимит не сработал: смен {g.shifts}, ожидалось 4")
-    if not g.work("dishes").startswith(("недельный", "лимит")):
-        fail.append("пятая смена за неделю должна блокироваться")
-
-    # Лимит смен сбрасывается на следующей неделе (длинный режим).
-    g = b.Game(b.LONG)
-    g.mood = 80
+    g.start_day()
+    g.buy("food-cheap")
+    g.choose_transport("bus")
     g.energy = 100
-    for key in ("dishes", "dishes", "kafe", "dishes"):
-        g.work(key)
-    g.current_day = 8
+    g.current_day = 2
+    g.week_shifts[0] = b.SHORT.weekly_shift_cap
+    if not g.work("lab").startswith(("недельный", "лимит")):
+        fail.append(f"смена сверх лимита {b.SHORT.weekly_shift_cap} должна блокироваться")
+
+    # Лимит смен сбрасывается на следующей неделе.
+    g = b.Game(b.SHORT)
     g.current_week = 1
-    if g.work("dishes").startswith(("недельный", "лимит")):
+    g.week_shifts[1] = b.SHORT.weekly_shift_cap
+    g.start_day()
+    g.buy("food-cheap")
+    g.choose_transport("bus")
+    if g.work("lab").startswith(("недельный", "лимит")):
         fail.append("недельный лимит смен должен сбрасываться в начале новой недели")
 
-    # Кредит: кошелёк уходит в минус, кредитный штраф применяется.
+    # Долга нет: без денег жильё не оплачивается, кошелёк не уходит в минус.
     g = b.Game(b.SHORT)
-    g.cash = 100
+    # Денег хватает на завтрак и дорогу, но не на жильё.
+    g.cash = 200
     g.savings = 0
-    before_mood = g.mood
-    g.buy("clothes")
-    if g.cash >= 0:
-        fail.append("покупка в долг должна уводить кошелёк в минус")
-    if g.debt != 3000:
-        fail.append(f"долг должен составить 3 000, а не {g.debt}")
-    # бонус за одежду (+8) минус штраф за долг (5) = +3
-    if g.mood != before_mood - b.CREDIT_MOOD_PENALTY + 8:
-        fail.append(f"кредитный штраф настроения применён неверно: {before_mood} -> {g.mood}")
-
-    # Обязательные расходы не оплачиваются, если денег нет нигде.
-    g = b.Game(b.SHORT)
-    g.cash = 0
-    g.savings = 0
-    g.day_events(1)
-    if g.spent_by_category["обязательные"] != 0:
-        fail.append("обязательные расходы без денег не должны оплачиваться")
+    g.start_day()
+    g.buy("food-cheap")
+    g.choose_transport("bus")
+    result = g.buy("housing")  # жильё покупается уже в свободное время
+    if "не хватает денег" not in result:
+        fail.append("без денег жильё не должно оплачиваться")
+    if g.cash < 0:
+        fail.append("кошелёк не должен уходить в минус")
+    if g.housing_paid:
+        fail.append("неоплаченное жильё не должно считаться оплаченным")
 
     # Подушку можно использовать при нехватке в кошельке.
     g = b.Game(b.SHORT)
@@ -546,26 +564,30 @@ def check_content(doc: str) -> None:
     if g.savings != 3000:
         fail.append(f"подушка после оплаты должна быть 3 000, а не {g.savings}")
 
-    # Спад Соломона и его связь с хозяином.
+    # Брошенный Соломон отнимает настроение каждый день.
     g = b.Game(b.SHORT)
     g.mood = 60
-    g.solomon = 100
-    g.decay()
-    if g.solomon >= 100:
-        fail.append("Соломон должен скучать без ухода")
-    g2 = b.Game(b.SHORT)
-    g2.mood = 10
-    g2.solomon = 100
-    g2.decay()
-    if g2.solomon >= g.solomon:
-        fail.append("несчастный хозяин должен запускать Соломона сильнее")
+    before = g.mood
+    notes = g.decay()
+    if g.mood != before - b.BORING - b.PET_NEGLECT_MOOD:
+        fail.append(f"настроение должно падать на скуку и брошенного Соломона: {before} -> {g.mood}")
+    if not any("Соломон скучает" in note for note in notes):
+        fail.append("в причинах должно быть сказано, что Соломон скучает без ухода")
+
+    # Грязный Соломон отнимает настроение ещё сильнее.
+    dirty = b.Game(b.SHORT)
+    dirty.mood = 60
+    dirty.cleanliness = 0
+    dirty_before = dirty.mood
+    dirty.decay()
+    if dirty.mood >= g.mood:
+        fail.append("грязный Соломон должен отнимать настроение сильнее")
 
     # Проверка расходов: все вердикты достижимы.
     verdicts = set()
     for policy in b.POLICIES.values():
         verdicts.add(b.expense_audit(b.Game(b.SHORT, 11).run(policy))["вердикт"])
-    for want in ("Расходы распределены грамотно", "Расходы покрыты, но резерв не создан",
-                 "Расходы превысили доходы"):
+    for want in ("Расходы распределены грамотно", "Расходы покрыты, но резерв не создан"):
         if want not in verdicts:
             fail.append(f"вердикт проверки расходов «{want}» недостижим")
 
@@ -592,8 +614,7 @@ def check_content(doc: str) -> None:
             fail.append(f"в документе нет строки описания позы: {row}")
 
 
-TAB_LABELS = {"work": "Заработать", "spend": "Потратить",
-               "rest": "Отдохнуть", "pet": "Соломон"}
+TAB_LABELS = {"work": "Заработать", "spend": "Потратить", "solomon": "Соломон"}
 
 
 def check_locations(doc: str, data: dict) -> None:
@@ -663,9 +684,7 @@ def main() -> None:
 
     # 1. Все числа таблиц документа — против модели (обе игровые режима).
     check_short_table(doc)
-    check_long_table(doc)
     check_week_table(doc)
-    check_professions_table(doc)
 
     # 2. JSON — против модели (включая профессии и правила).
     check_json(data)

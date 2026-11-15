@@ -93,18 +93,6 @@ export default function EventScreen({ event, onChoose, error }: Props) {
                     {option.moodGain}
                   </span>
                 )}
-                {(option.solomonGain ?? 0) !== 0 && (
-                  <span
-                    className={
-                      (option.solomonGain ?? 0) > 0
-                        ? "text-emerald-700"
-                        : "text-rose-700"
-                    }
-                  >
-                    Соломон {option.solomonGain! > 0 ? "+" : ""}
-                    {option.solomonGain}
-                  </span>
-                )}
                 {(option.energyCost ?? 0) > 0 && (
                   <span className="text-rose-700">энергия −{option.energyCost}</span>
                 )}

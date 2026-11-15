@@ -1,4 +1,3 @@
-import { RULES } from "../data/scenario";
 import type { GameState, SpendCategory } from "./types";
 
 /**
@@ -38,36 +37,18 @@ export function pay(
 }
 
 /**
- * Покупка в долг: кошелёк уходит в минус, настроение падает.
- * Так игрок сам видит последствия — итоговый разбор их подсвечивает.
- */
-export function payOnCredit(
-  state: GameState,
-  amount: number,
-  category?: SpendCategory,
-): string {
-  state.cash -= amount;
-  state.debt += amount;
-  state.expenses += amount;
-  if (category) state.spentByCategory[category] += amount;
-  state.scales.mood = Math.max(
-    0,
-    state.scales.mood - RULES.creditMoodPenalty,
-  );
-  return `-${amount} (в долг)`;
-}
-
-/**
- * Оплатить списание: сначала кошелёк, потом подушка, иначе — долг.
- * Именно так ведёт себя эталонный симулятор.
+ * Оплатить списание: сначала кошелёк, потом подушка.
+ *
+ * Долга в игре нет: если денег не хватает, покупка просто не проходит —
+ * вызывающий код проверяет `canPay` и объясняет игроку, почему нельзя.
  */
 export function payFlexible(
   state: GameState,
   amount: number,
   category?: SpendCategory,
 ): string {
-  if (canPay(state, amount)) return pay(state, amount, category);
-  return payOnCredit(state, amount, category);
+  if (!canPay(state, amount)) return "не хватает денег";
+  return pay(state, amount, category);
 }
 
 /** Отложить деньги в подушку безопасности. */

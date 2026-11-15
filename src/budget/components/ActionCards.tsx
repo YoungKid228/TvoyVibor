@@ -1,31 +1,57 @@
 import PixelButton from "../../components/PixelButton";
 import Icon from "./Icon";
-import { ITEMS, JOBS, RULES, SPENDS } from "../data/scenario";
+import { JOBS, RULES, SPENDS } from "../data/scenario";
 import {
   goesIntoDebt,
   jobBlockReason,
-  restBlockReason,
   spendBlockReason,
 } from "../core/reducer";
-import type { GameState, ItemId, JobId, SpendId } from "../core/types";
+import type { GameState, JobId, SpendId } from "../core/types";
 import type { SceneTab } from "./ScenePanel";
 
 /**
- * Карточки действий в четырёх вкладках: «Заработать», «Потратить», «Отдохнуть», «Соломон».
+ * Карточки действий в трёх вкладках: «Заработать», «Потратить», «Соломон».
  *
- * Сами вкладки-переключатели нарисованы на сцене (`ScenePanel`): они же
+ * Вкладки-переключатели нарисованы на сцене (`ScenePanel`): они же
  * переключают локацию. Здесь — только содержимое активной вкладки.
  *
- * Каждое действие что-то тратит — бесплатных действий «только в плюс» нет.
- * Недоступные действия подписаны причиной (лимит, нет энергии, мало
- * репутации), чтобы игрок понимал правила, а не угадывал их.
+ * У каждого действия есть цена (время и, иногда, деньги) и последствия.
+ * Недоступные действия подписаны причиной (лимит, нет энергии, нет
+ * интернета), чтобы игрок понимал правила, а не угадывал их.
  */
 
 /**
- * Уход за питомцем — не покупка: эти действия живут во вкладке «Соломон»,
- * и в «Потратить» их нет, чтобы одно действие не было на двух вкладках.
+ * Вкладка «Потратить»: еда, обязательные платежи, развлечения.
+ *
+ * Уход за Соломоном (pet, wash, lessons, shower) живёт только во вкладке
+ * «Соломон» — одно действие не должно быть на двух вкладках.
  */
-const PET_CARE_SPENDS: SpendId[] = ["pet", "wash"];
+const SPEND_TABS: Record<SpendId, "food" | "bills" | "fun" | "care"> = {
+  "food-cheap": "food",
+  "food-fast": "food",
+  "food-luxe": "food",
+  "food-leftovers": "food",
+  housing: "bills",
+  internet: "bills",
+  "transit-pass": "bills",
+  laundry: "bills",
+  kino: "fun",
+  park: "fun",
+  tiktok: "fun",
+  pet: "care",
+  wash: "care",
+  lessons: "care",
+  shower: "care",
+};
+
+const SPEND_GROUPS: { key: "food" | "bills" | "fun"; title: string }[] = [
+  { key: "food", title: "Еда — каждый день" },
+  { key: "bills", title: "Обязательные платежи" },
+  { key: "fun", title: "Развлечения" },
+];
+
+/** Вкладка «Соломон»: уход за питомцем и за собой. */
+const CARE_SPENDS: SpendId[] = ["pet", "wash", "lessons", "shower"];
 
 type Props = {
   state: GameState;
@@ -33,8 +59,6 @@ type Props = {
   tab: SceneTab;
   onWork: (jobId: JobId) => void;
   onBuy: (spendId: SpendId) => void;
-  onBuyItem: (itemId: ItemId) => void;
-  onRest: () => void;
 };
 
 export default function ActionCards({
@@ -42,18 +66,18 @@ export default function ActionCards({
   tab,
   onWork,
   onBuy,
-  onBuyItem,
-  onRest,
 }: Props) {
   const weekShifts = state.weekShifts[state.week] ?? 0;
 
   return (
     <section aria-label="Действия" className="flex flex-col gap-3">
       <p className="text-xs text-stone-600">
-        {tab === "work" && `Смены на этой неделе: ${weekShifts} из 4`}
-        {tab === "spend" && "Покупки: настроение вверх, кошелёк вниз"}
-        {tab === "rest" && "Отдых: сон восстанавливает энергию"}
-        {tab === "pet" && "Уход за Соломоном: поглаживание и мытьё"}
+        {tab === "work" &&
+          `Смены на этой неделе: ${weekShifts} из ${RULES.weeklyShiftCap}`}
+        {tab === "spend" &&
+          "Обязательные платежи — разово и на период. Остальное по желанию."}
+        {tab === "solomon" &&
+          "Соломону нужны ласка, вода и чистая одежда. Сон закрывает день."}
       </p>
 
       {tab === "work" && (
@@ -66,6 +90,7 @@ export default function ActionCards({
                 title={job.label}
                 price={`+${job.pay.toLocaleString("ru-RU")} ₽`}
                 icon={job.icon}
+                minutes={job.minutes}
                 effects={[
                   { text: `энергия −${job.energyCost}`, tone: "cost" },
                   { text: `настроение −${job.moodCost}`, tone: "cost" },
@@ -80,139 +105,128 @@ export default function ActionCards({
 
       {tab === "spend" && (
         <>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {SPENDS.filter(
-              (spend) => !PET_CARE_SPENDS.includes(spend.id),
-            ).map((spend) => {
-              const blocked = spendBlockReason(state, spend.id);
-              const debt = goesIntoDebt(state, spend.id);
-              return (
-                <ActionCard
-                  key={spend.id}
-                  title={spend.label}
-                  price={
-                    spend.cost === 0
-                      ? "бесплатно"
-                      : `−${spend.cost.toLocaleString("ru-RU")} ₽`
-                  }
-                  icon={spend.icon}
-                  effects={[
-                    ...(spend.moodGain
-                      ? [
-                          {
-                            text: `настроение ${spend.moodGain > 0 ? "+" : ""}${spend.moodGain}`,
-                            tone: spend.moodGain > 0 ? ("gain" as const) : ("cost" as const),
-                          },
-                        ]
-                      : []),
-                    ...(spend.energyCost
-                      ? [{ text: `энергия −${spend.energyCost}`, tone: "cost" as const }]
-                      : []),
-                    ...(spend.hungerGain
-                      ? [{ text: `сытость +${spend.hungerGain}`, tone: "gain" as const }]
-                      : []),
-                    ...(spend.hygieneGain
-                      ? [{ text: `гигиена +${spend.hygieneGain}`, tone: "gain" as const }]
-                      : []),
-                    ...(spend.solomonGain
-                      ? [
-                          {
-                            text: `Соломон ${spend.solomonGain > 0 ? "+" : ""}${spend.solomonGain}`,
-                            tone: spend.solomonGain > 0 ? ("gain" as const) : ("cost" as const),
-                          },
-                        ]
-                      : []),
-                    // Долг разрешён, но игрок должен видеть его до покупки:
-                    // долг должен быть осознанным решением, а не сюрпризом.
-                    ...(debt
-                      ? [
-                          {
-                            text: "уйдёт в долг",
-                            tone: "cost" as const,
-                          },
-                        ]
-                      : []),
-                  ]}
-                  blocked={blocked}
-                  onClick={() => onBuy(spend.id)}
-                />
-              );
-            })}
-          </ul>
+          {SPEND_GROUPS.map((group) => {
+            const cards = SPENDS.filter(
+              (spend) => SPEND_TABS[spend.id] === group.key,
+            );
+            if (cards.length === 0) return null;
+            return (
+              <div key={group.key}>
+                <h3 className="mb-1 mt-1 text-sm font-bold text-stone-700">
+                  {group.title}
+                </h3>
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {cards.map((spend) => (
+                    <SpendCard
+                      key={spend.id}
+                      state={state}
+                      spendId={spend.id}
+                      onBuy={onBuy}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </>
+      )}
 
-          <h3 className="mt-2 text-sm font-bold text-stone-700">
-            Крупные покупки
-          </h3>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {ITEMS.map((item) => (
-              <ActionCard
-                key={item.id}
-                title={item.label}
-                price={`−${item.cost.toLocaleString("ru-RU")} ₽`}
-                icon={item.icon}
-                effects={[{ text: item.note, tone: "gain" }]}
-                blocked={state.items.includes(item.id) ? "уже куплено" : null}
-                onClick={() => onBuyItem(item.id)}
+      {tab === "solomon" && (
+        <>
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {CARE_SPENDS.map((spendId) => (
+              <SpendCard
+                key={spendId}
+                state={state}
+                spendId={spendId}
+                onBuy={onBuy}
               />
             ))}
           </ul>
         </>
       )}
-
-      {tab === "rest" && (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <ActionCard
-            title="Поспать"
-            price="бесплатно"
-            icon="ui/ui-day"
-            effects={[
-              { text: "энергия +45", tone: "gain" },
-              { text: "настроение +4", tone: "gain" },
-            ]}
-            blocked={restBlockReason(state)}
-            onClick={onRest}
-          />
-        </ul>
-      )}
-
-      {tab === "pet" && (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <ActionCard
-            title="Погладить Соломона"
-            price="бесплатно"
-            icon="ui/heart-2"
-            effects={[
-              { text: "Соломон +5", tone: "gain" },
-              { text: "энергия −2", tone: "cost" },
-              {
-                text: `осталось ${Math.max(0, RULES.petPerDay - state.petsToday)} из ${RULES.petPerDay}`,
-                tone: "cost",
-              },
-            ]}
-            blocked={spendBlockReason(state, "pet")}
-            onClick={() => onBuy("pet")}
-          />
-          <ActionCard
-            title="Вымыть Соломона"
-            price="−200 ₽"
-            icon="ui/spend-shower"
-            effects={[
-              // Мытьё возвращает блеск, а не «добавляет чистоту»: после него
-              // Соломон снова чистый (100), поэтому подпись — «чистота → 100».
-              { text: "чистота → 100", tone: "gain" },
-              { text: "настроение +1", tone: "gain" },
-              { text: "Соломон +2", tone: "gain" },
-              {
-                text: `осталось ${Math.max(0, RULES.washPerDay - state.washesToday)} из ${RULES.washPerDay}`,
-                tone: "cost",
-              },
-            ]}
-            blocked={spendBlockReason(state, "wash")}
-            onClick={() => onBuy("wash")}
-          />
-        </ul>
-      )}
     </section>
+  );
+}
+
+/** Карточка траты: цена, время, последствия и причина блокировки. */
+function SpendCard({
+  state,
+  spendId,
+  onBuy,
+}: {
+  state: GameState;
+  spendId: SpendId;
+  onBuy: (spendId: SpendId) => void;
+}) {
+  const spend = SPENDS.find((item) => item.id === spendId);
+  if (!spend) return null;
+  const blocked = spendBlockReason(state, spendId);
+  const debt = goesIntoDebt(state, spendId);
+  const effects: Effect[] = [];
+
+  if (spend.moodGain) {
+    effects.push({
+      text: `настроение ${spend.moodGain > 0 ? "+" : ""}${spend.moodGain}`,
+      tone: spend.moodGain > 0 ? "gain" : "cost",
+    });
+  }
+  if (spend.energyCost) {
+    effects.push({ text: `энергия −${spend.energyCost}`, tone: "cost" });
+  }
+  if (spend.energyGain) {
+    effects.push({ text: `энергия +${spend.energyGain}`, tone: "gain" });
+  }
+  if (spend.hungerGain) {
+    effects.push({ text: `сытость +${spend.hungerGain}`, tone: "gain" });
+  }
+  if (spend.cleanlinessGain) {
+    effects.push({
+      text: `чистота +${spend.cleanlinessGain}`,
+      tone: "gain",
+    });
+  }
+  if (spendId === "wash") {
+    effects.push({ text: "чистота → 100", tone: "gain" });
+  }
+  if (spendId === "lessons") {
+    effects.push({
+      text: `уроки подряд: ${state.lessonStreak + 1}`,
+      tone: "gain",
+    });
+  }
+  if (spendId === "pet") {
+    effects.push({
+      text: `осталось ${Math.max(0, RULES.petPerDay - state.petsToday)} из ${RULES.petPerDay}`,
+      tone: "cost",
+    });
+  }
+  if (spendId === "wash") {
+    effects.push({
+      text: `осталось ${Math.max(0, RULES.washPerDay - state.washesToday)} из ${RULES.washPerDay}`,
+      tone: "cost",
+    });
+  }
+  // Долг разрешён, но игрок должен видеть его до покупки: долг должен быть
+  // осознанным решением, а не сюрпризом.
+  if (debt) {
+    effects.push({ text: "уйдёт в долг", tone: "cost" });
+  }
+
+  return (
+    <ActionCard
+      title={spend.label}
+      price={
+        spend.cost === 0
+          ? "бесплатно"
+          : `−${spend.cost.toLocaleString("ru-RU")} ₽`
+      }
+      icon={spend.icon}
+      minutes={spend.minutes}
+      effects={effects}
+      blocked={blocked}
+      onClick={() => onBuy(spendId)}
+    />
   );
 }
 
@@ -223,6 +237,7 @@ function ActionCard(
     title,
     price,
     icon,
+    minutes,
     effects,
     blocked,
     onClick,
@@ -230,10 +245,12 @@ function ActionCard(
     title: string;
     price: string;
     icon: string;
+    /** Сколько времени занимает действие, минут. */
+    minutes: number;
     effects: Effect[];
     blocked: string | null;
     onClick: () => void;
-  }
+  },
 ) {
   return (
     <li>
@@ -258,6 +275,12 @@ function ActionCard(
           </span>
         </span>
         <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+          {minutes > 0 && (
+            <span className="flex items-center gap-1 text-stone-600">
+              <Icon name="ui/ui-clock" alt="" size={12} />
+              {minutes} мин
+            </span>
+          )}
           {effects.map((effect) => (
             <span
               key={effect.text}

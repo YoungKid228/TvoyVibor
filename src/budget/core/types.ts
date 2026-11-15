@@ -3,9 +3,16 @@
  *
  * Ядро не знает про React и DOM: чистые данные и чистые функции.
  * Числа обязаны совпадать с эталоном `scripts/balance_sim.py`.
+ *
+ * День устроен по часам: утро (завтрак и дорога к парам), пары до 15:00,
+ * потом свободное время и сон. Сон — обязательное условие конца дня.
  */
 
-export type ScenarioKey = "short" | "long";
+/**
+ * Ключ сценария. Список режимов — в `src/data/solomon-game.json` → `scenarios`.
+ * Сейчас играется неделя; месячный режим убран и вернётся данными.
+ */
+export type ScenarioKey = "short";
 
 export type Screen =
   | "menu"
@@ -13,19 +20,18 @@ export type Screen =
   | "event"
   | "result";
 
-/** Состояние всех шкал игрока и питомца. */
+/**
+ * Состояние шкал. Их четыре, и две из них общие для игрока и Соломона:
+ * настроение и чистота.
+ */
 export type Scales = {
-  /** Настроение игрока — шкала счастья, главная шкала игры. */
+  /** Настроение — общее у игрока и Соломона: счастье здесь одно. */
   mood: number;
-  /** Энергия: хватит ли сил на смену. */
+  /** Энергия: хватит ли сил на смену, учёбу и готовку. */
   energy: number;
   /** Сытость. */
   hunger: number;
-  /** Гигиена. */
-  hygiene: number;
-  /** Настроение Соломона — индикатор качества жизни. */
-  solomon: number;
-  /** Чистота Соломона: 100 — только что вымыт, 0 — грязный. */
+  /** Чистота — общая: и игрок, и Соломон. 0 — грязно. */
   cleanliness: number;
 };
 
@@ -48,35 +54,26 @@ export type SpendCategoryKey =
   | "phone"
   | "savings";
 
-export type JobId =
-  | "dishes"
-  | "kafe"
-  | "tutor"
-  | "freelance"
-  | "courier"
-  | "market"
-  | "hegan"
-  | "dorm";
+export type JobId = "courier" | "tutor" | "lab";
 
 export type SpendId =
+  | "food-cheap"
+  | "food-fast"
+  | "food-luxe"
+  | "food-leftovers"
+  | "housing"
+  | "internet"
+  | "transit-pass"
+  | "laundry"
   | "kino"
-  | "cafe"
-  | "bowling"
   | "park"
-  | "products"
-  | "coffee"
+  | "tiktok"
   | "pet"
-  | "shower"
-  | "clothes"
-  | "toyshop"
-  | "schnitzel"
-  | "matza"
-  | "breakfast"
-  | "dreidel"
-  | "amulet"
-  | "festival"
-  | "zoo"
-  | "wash";
+  | "wash"
+  | "lessons"
+  | "shower";
+
+export type TransportId = "walk" | "bus" | "taxi";
 
 export type ItemId = "laptop" | "washer" | "gym";
 
@@ -98,7 +95,9 @@ export type Job = {
   energyCost: number;
   /** Расход настроения за смену. */
   moodCost: number;
-  /** Условие доступа: null | "rep>=2" | "laptop". */
+  /** Длительность смены, минут. */
+  minutes: number;
+  /** Условие доступности: null | "internet" | "internet+lessons" | "day2". */
   requires: string | null;
   /** Лимит смен этой работы за неделю. */
   limit: number;
@@ -113,23 +112,59 @@ export type Spend = {
   icon: string;
   /** Цена, ₽. */
   cost: number;
+  /** Длительность действия, минут. */
+  minutes: number;
+  /** Локация, где происходит действие: игра показывает её на сцене. */
+  location: string;
   moodGain: number;
+  /** Расход энергии (положительное число). */
   energyCost: number;
+  /** Прирост энергии от еды (положительное число). */
+  energyGain: number;
   hungerGain: number;
-  hygieneGain: number;
+  /** Прирост общей чистоты. */
+  cleanlinessGain: number;
   repGain: number;
-  solomonGain: number;
-  local: boolean;
+  /** Статья разбора расходов. */
+  category: SpendCategory;
+  /** Готовит ли трата еду «на потом». */
+  preparesMeal: boolean;
+  /** Условие доступности: null | "preparedMeal" | "internet" | "mood". */
+  requires: string | null;
+  /** Разовая трата: оплачивается один раз за игру. */
+  once?: boolean;
+  /** Периодическая трата: оплачивается на весь период. */
+  period?: boolean;
 };
 
-export type Item = {
-  id: ItemId;
+/** Утренний выбор дороги до пар. */
+export type Transport = {
+  id: TransportId;
   label: string;
-  /** Иконка крупной покупки из набора `src/assets/ui`. */
   icon: string;
+  /** Цена поездки, ₽ (с проездным — 0). */
   cost: number;
-  effect: "freelance" | "hygiene" | "mood";
-  note: string;
+  /** Длительность дороги, минут. */
+  minutes: number;
+  /** Расход энергии. */
+  energyCost: number;
+  /** Насколько Соломон пачкается по дороге. */
+  dirt: number;
+  moodGain: number;
+};
+
+/** Расписание дня: часы в минутах от 00:00. */
+export type DayPlan = {
+  /** Начало дня. */
+  startMinutes: number;
+  /** До этого времени нужно успеть позавтракать и доехать до пар. */
+  morningEnd: number;
+  /** Начало пар. */
+  classesStart: number;
+  /** Конец пар. */
+  classesEnd: number;
+  /** После этого времени день закончен — только сон. */
+  nightMinutes: number;
 };
 
 export type Profession = {
@@ -143,7 +178,7 @@ export type Profession = {
   shiftBonus: number;
   /** Дополнительное стартовое настроение. */
   moodBonus: number;
-  /** Добавка к зарплате, ₽. */
+  /** Добавка к оплате смены, ₽. */
   payBonus: number;
 };
 
@@ -153,21 +188,23 @@ export type Scenario = {
   days: number;
   /** Стартовый капитал, ₽. */
   capital: number;
-  /** Сумма обязательных расходов, ₽. */
-  mandatoryTotal: number;
-  /** "once" — платим в первый день; "weekly" — по 1/4 каждую неделю. */
-  mandatoryMode: "once" | "weekly";
-  salary: number;
-  salaryDay: number;
+  /** После какого дня неоплаченное жильё — это выселение. */
+  housingDeadline: number;
+  /** Сколько дней интернет работает бесплатно. */
+  internetTrialDays: number;
+  /** На сколько дней хватает оплаты интернета. */
+  internetDays: number;
+  /** На сколько дней хватает проездного. */
+  transitDays: number;
+  /** Как часто нужно стирать вещи. */
+  laundryEveryDays: number;
   phoneDay: number;
   giftDay: number;
-  /** День локального события «снегопад» (0 — не задано). */
-  blizzardDay: number;
+  /** Дни снегопада: дорога дороже и дольше. */
+  snowDays: number[];
   weeklyShiftCap: number;
   hungerDecay: number;
-  hygieneDecay: number;
-  solomonDecay: number;
-  /** Насколько Соломон пачкается за день (шкала чистоты 0…100). */
+  /** Насколько падает общая чистота за день (0…100). */
   cleanlinessDecay: number;
 };
 
@@ -178,32 +215,55 @@ export type Rules = {
   burnoutRate: number;
   boringDaily: number;
   sleepMood: number;
+  /** Базовая энергия, которую возвращает сон. */
   sleepEnergy: number;
+  /** На сколько сон опускает сытость. */
+  sleepHunger: number;
+  /** Сколько приёмов пищи в день можно съесть. */
+  mealsPerDay: number;
+  /** Настроение, которое Соломон снимает скукой без ухода. */
+  petNeglectMood: number;
   /** Сколько раз в день можно спать. */
   sleepPerDay: number;
   /** Сколько раз в день можно погладить Соломона. */
   petPerDay: number;
-  /** Сколько раз в день можно вымыть Соломона. */
+  /** Сколько раз в день можно мыть Соломона. */
   washPerDay: number;
   /** Чистота Соломона, начиная с которой он считается чистым (вариант спрайта 0). */
   cleanAt: number;
   /** Чистота Соломона, ниже которой он считается сильно грязным (вариант 2). */
   dirtyAt: number;
+  /** Насколько Соломон пачкается за день. */
+  cleanlinessDecay: number;
   /** Потолок репутации: выше него репутация ничего не даёт. */
   repCap: number;
-  /** Срок абонемента в зал, дней с момента покупки. */
-  gymDays: number;
   saveBonusAt: number;
   saveBonus: number;
-  solomonUpAt: number;
-  solomonUp: number;
-  solomonDown: number;
-  gloomyOwnerMood: number;
-  solomonHappy: number;
-  creditMoodPenalty: number;
-  debtDailyMoodPenalty: number;
   hungerPenalty: number;
   hygienePenalty: number;
+  /** Расход энергии за пары. */
+  classesEnergyCost: number;
+  /** Расход настроения за пары. */
+  classesMoodCost: number;
+  /** Длительность пар, минут. */
+  classesMinutes: number;
+  /** Сколько дней уроков подряд открывают репетиторство. */
+  lessonStreakForTutor: number;
+  /** Настроение от сделанных уроков. */
+  lessonMoodGain: number;
+  /** Штраф настроению за пропущенные уроки. */
+  missedLessonMood: number;
+  /** После скольких пропусков у Соломона начинаются проблемы с учёбой. */
+  lessonProblemsAfter: number;
+  /** Ниже этого настроения развлечения недоступны. */
+  moodForFun: number;
+  /** Сытость, ниже которой Соломон считается брошенным. */
+  neglectHunger: number;
+  /** Сколько дней без присмотра — и игрок проигрывает. */
+  neglectDaysToLose: number;
+  cleanFactorGood: number;
+  cleanFactorWeak: number;
+  cleanFactorBad: number;
 };
 
 /** Где стоит персонаж в кадре локации — в процентах от размера фона. */
@@ -236,14 +296,13 @@ export type EventOption = {
   icon: string;
   cost: number;
   moodGain: number;
-  solomonGain?: number;
   energyCost?: number;
   /** Пояснение для игрока: чем приходится платить. */
   hint: string;
 };
 
 export type GameEvent = {
-  id: "phone" | "gift" | "blizzard";
+  id: "phone" | "gift";
   day: number;
   title: string;
   description: string;
@@ -261,14 +320,19 @@ export type DayLogEntry = {
   savings: number;
   mood: number;
   energy: number;
-  solomon: number;
   hunger: number;
-  hygiene: number;
-  /** Чистота Соломона на конец дня. */
+  /** Общая чистота на конец дня. */
   cleanliness: number;
   actions: string[];
   /** Причины изменения шкал в этот день. */
   notes: string[];
+};
+
+/** Причина проигрыша. */
+export type LossReason = {
+  id: "housing" | "neglect";
+  title: string;
+  text: string;
 };
 
 export type ExpenseAudit = {
@@ -289,16 +353,26 @@ export type GameStats = {
   cash: number;
   savings: number;
   avgMood: number;
-  avgSolomon: number;
+  avgCleanliness: number;
   shifts: number;
   income: number;
   expenses: number;
   moneyGrade: string;
   moodGrade: string;
-  solomonGrade: string;
   verdict: string;
   audit: ExpenseAudit;
 };
+
+/** Фаза дня. */
+export type DayPhase =
+  /** Утро: завтрак и дорога к парам. */
+  | "morning"
+  /** Пары: игрок ждёт, время идёт само. */
+  | "classes"
+  /** Свободное время: работа, развлечения, уход. */
+  | "free"
+  /** День закончен (после сна). */
+  | "done";
 
 /** Полное состояние игры. */
 export type GameState = {
@@ -308,16 +382,18 @@ export type GameState = {
   day: number;
   /** Номер недели, 0-based: (day - 1) / 7. */
   week: number;
-  /** Фаза текущего дня — гарантирует правильный порядок операций. */
-  phase: "mandatory" | "blizzard" | "decay" | "actions";
+  /** Фаза текущего дня. */
+  phase: DayPhase;
+  /** Время суток в минутах от 00:00. */
+  clock: number;
   cash: number;
   savings: number;
   scales: Scales;
+  /** Успеваемость: растёт от уроков, падает от пропусков. */
   rep: number;
   items: ItemId[];
   income: number;
   expenses: number;
-  debt: number;
   /** Всего смен за игру. */
   shifts: number;
   /** Смены по неделям: номер недели → число смен. */
@@ -326,12 +402,10 @@ export type GameState = {
   weekJobs: Record<string, number>;
   spentByCategory: Record<SpendCategory, number>;
   /** Флаги одноразовых событий — чтобы нельзя было пройти их дважды. */
-  salaryPaid: boolean;
   phoneResolved: boolean;
   giftResolved: boolean;
-  blizzardResolved: boolean;
-  /** Выбранный вариант снегопада. */
-  blizzardChoice: "taxi" | "bus" | "walk" | null;
+  /** Телефон сломали и не починили: нет курьерской доставки и тик-тока. */
+  phoneBroken: boolean;
   /** Открытое событие, требующее выбора. */
   pendingEvent: GameEvent | null;
   log: DayLogEntry[];
@@ -339,13 +413,42 @@ export type GameState = {
   dayActions: string[];
   /** Сколько раз игрок спал сегодня. */
   sleepsToday: number;
-  /** Сколько раз игрок гладил Соломона сегодня. */
+  /** Сколько раз игрок гладил Соломона. */
   petsToday: number;
-  /** Сколько раз игрок мыл Соломона сегодня. */
+  /** Сколько раз игрок мыл Соломона. */
   washesToday: number;
-  /** День покупки каждой крупной вещи — чтобы абонемент имел срок. */
+  /** Завтрак выбран? */
+  breakfastToday: boolean;
+  /** Как добрались до пар? */
+  transportToday: TransportId | null;
+  /** Сколько раз ел сегодня. */
+  mealsToday: number;
+  /** Сегодня приготовили еду — осталась на второй приём пищи. */
+  preparedMeal: boolean;
+  /** Уроки сделаны сегодня? */
+  lessonsToday: boolean;
+  /** Сколько дней подряд сделаны уроки. */
+  lessonStreak: number;
+  /** Сколько дней подряд уроки пропущены. */
+  missedLessons: number;
+  /** У Соломона начались проблемы с учёбой. */
+  lessonProblems: boolean;
+  /** Жильё оплачено? */
+  housingPaid: boolean;
+  /** До какого дня (включительно) работает интернет. */
+  internetUntil: number;
+  /** До какого дня (включительно) действует проездной. */
+  transitUntil: number;
+  /** В какой день последний раз стирали вещи. */
+  laundryDay: number;
+  /** Сколько дней подряд Соломон брошен. */
+  neglectDays: number;
+  /** Проигрыш: причина и факт. */
+  lost: boolean;
+  lossReason: LossReason | null;
+  /** День покупки каждой крупной вещи. */
   itemDays: Record<string, number>;
-  /** Причины изменения шкал за текущий день — для обратной связи. */
+  /** Причины изменения шкал за текущего дня — для обратной связи. */
   dayNotes: string[];
   /** Начался ли уже дневной цикл текущего дня. */
   dayStarted: boolean;

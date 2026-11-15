@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { canPay, finalBalance, pay, payOnCredit, save, withdraw } from "../../src/budget/core/finance";
+import {
+  canPay,
+  finalBalance,
+  pay,
+  payFlexible,
+  save,
+  withdraw,
+} from "../../src/budget/core/finance";
 import { createInitialState } from "../../src/budget/core/reducer";
-import { RULES } from "../../src/budget/data/scenario";
 
 describe("финансы", () => {
   it("при достатке в кошельке платит из кошелька", () => {
@@ -21,15 +27,14 @@ describe("финансы", () => {
     expect(g.savings).toBe(2500);
   });
 
-  it("кредит уводит кошелёк в минус и бьёт по настроению", () => {
+  it("долга нет: без денег оплата не проходит", () => {
     const g = createInitialState();
     g.cash = 500;
     g.savings = 0;
     const before = g.scales.mood;
-    expect(payOnCredit(g, 3000, "покупки")).toBe("-3000 (в долг)");
-    expect(g.cash).toBe(-2500);
-    expect(g.debt).toBe(3000);
-    expect(g.scales.mood).toBe(before - RULES.creditMoodPenalty);
+    expect(payFlexible(g, 3000, "покупки")).toBe("не хватает денег");
+    expect(g.cash).toBe(500);
+    expect(g.scales.mood).toBe(before);
   });
 
   it("подушку можно снять", () => {

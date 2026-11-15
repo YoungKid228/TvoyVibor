@@ -1,13 +1,13 @@
 import PixelButton from "../../components/PixelButton";
-import { RULES, SCENARIOS } from "../data/scenario";
+import { DAY, OBLIGATORY_TOTAL, RULES, SCENARIOS } from "../data/scenario";
 import { useGame } from "../state/BudgetGameContext";
 
 /**
  * Экран «Правила».
  *
  * Документ обещает его в меню, а без него игрок не понимает главные
- * ограничения игры: сколько раз можно спать, сколько — гладить Соломона
- * и что происходит, когда кошелёк уходит в минус. Для учебной игры
+ * ограничения игры: как устроен день по часам, что обязательно, а что по
+ * желанию, и чем заканчивается плохой уход за Соломоном. Для учебной игры
  * непонятные правила — это отсутствие правил.
  */
 export default function RulesScreen() {
@@ -32,15 +32,58 @@ export default function RulesScreen() {
             {scenario.capital.toLocaleString("ru-RU")} ₽.
           </li>
           <li>
+            День начинается в {format(DAY.startMinutes)}. Сначала — завтрак и
+            дорога на пары, и всё это нужно успеть до {format(DAY.morningEnd)}.
+          </li>
+          <li>
+            Пары идут с {format(DAY.classesStart)} до {format(DAY.classesEnd)}:
+            время уходит само, а силы тратятся. Дальше день свободен до{" "}
+            {format(DAY.nightMinutes)}.
+          </li>
+          <li>
+            Закончить день можно только сном — это обязательное условие.
+            Сон — не чаще {RULES.sleepPerDay} раза в день.
+          </li>
+          <li>
             Не больше {RULES.weeklyShiftCap} смен за неделю любого вида — это
             главный ограничитель: деньги и счастье конкурируют за время.
           </li>
+        </ul>
+      </div>
+
+      <div className="rounded-xl border border-stone-300 bg-white p-4 shadow-[3px_3px_0_#d6d3d1]">
+        <h3 className="text-sm font-bold text-stone-700">
+          Обязательные расходы и необязательные
+        </h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-stone-700">
           <li>
-            Сон — не чаще {RULES.sleepPerDay} раза в день. Энергия
-            восстанавливается, но не бесконечно.
+            Жильё в общежитии — 3 500 ₽, платится один раз. Не заплатили до{" "}
+            {scenario.housingDeadline}-го дня — Соломона выселят, и игра
+            закончится.
           </li>
           <li>
-            Погладить Соломона — не чаще {RULES.petPerDay} раз в день.
+            Интернет — 500 ₽ за период. Первые {scenario.internetTrialDays}{" "}
+            дня он бесплатный, а потом без оплаты пропадают курьерская
+            доставка и тик-токи.
+          </li>
+          <li>
+            Транспорт: проездной за 1 000 ₽ на период или поездки — автобус
+            35 ₽, такси 150 ₽. Пешком бесплатно, но устаёте и Соломон
+            пачкается.
+          </li>
+          <li>
+            Еда — каждый день. Своя еда дешевле, но отнимает силы и время;
+            фастфуд и хороший обед дороже, зато возвращают силы. Из
+            приготовленного остаётся еда на второй приём пищи.
+          </li>
+          <li>
+            Обязательные расходы по правилам —{" "}
+            {OBLIGATORY_TOTAL.toLocaleString("ru-RU")} ₽ (жильё и интернет).
+            Всё остальное — по желанию, но за это платит время и настроение.
+          </li>
+          <li>
+            Стирка — 100 ₽: раз в {scenario.laundryEveryDays} дней, иначе
+            Соломону нечего надеть.
           </li>
         </ul>
       </div>
@@ -53,19 +96,42 @@ export default function RulesScreen() {
             кошельке не хватает, оплата идёт из подушки.
           </li>
           <li>
-            Долг разрешён: если денег нет нигде, трата всё равно проходит,
-            кошелёк уходит в минус, настроение падает на{" "}
-            {RULES.creditMoodPenalty}. В карточке такой траты будет пометка
-            «уйдёт в долг» — долг должен быть осознанным решением.
-          </li>
-          <li>
-            Обязательные расходы ({scenario.mandatoryTotal.toLocaleString("ru-RU")} ₽){" "}
-            при нехватке средств не оплачиваются — это попадёт в разбор как
-            «не покрыты».
+            Долга нет: если денег не хватает, трата не проходит — карточка
+            будет недоступна с пометкой «не хватает денег».
           </li>
           <li>
             Подушка от {RULES.saveBonusAt.toLocaleString("ru-RU")} ₽ даёт +
             {RULES.saveBonus} настроения в день.
+          </li>
+        </ul>
+      </div>
+
+      <div className="rounded-xl border border-stone-300 bg-white p-4 shadow-[3px_3px_0_#d6d3d1]">
+        <h3 className="text-sm font-bold text-stone-700">Соломон</h3>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-stone-700">
+          <li>
+            Чистота падает на {RULES.cleanlinessDecay} в день. Мытьё — 200 ₽,
+            не чаще {RULES.washPerDay} раза в день. Поглаживание — бесплатно,
+            не чаще {RULES.petPerDay} раз в день.
+          </li>
+          <li>
+            Сон возвращает силы: чистый Соломон — 100 % восстановления,
+            слегка грязный — 70 %, сильно грязный — 45 %. Зато сон опускает
+            сытость на {RULES.sleepHunger} — поесть придётся с утра.
+          </li>
+          <li>
+            Если настроение ниже {RULES.moodForFun}, развлечения недоступны:
+            скучно и не до них.
+          </li>
+          <li>
+            Уроки: три дня подряд — и откроется репетиторство. Пропуск — минус
+            {RULES.missedLessonMood} настроения; после{" "}
+            {RULES.lessonProblemsAfter} пропусков подряд у Соломона начнутся
+            проблемы с учёбой.
+          </li>
+          <li>
+            Два дня без еды — проигрыш: за Соломоном не уследили, и ему стало
+            плохо.
           </li>
         </ul>
       </div>
@@ -80,14 +146,13 @@ export default function RulesScreen() {
             оплачивается на {Math.round(RULES.burnoutRate * 100)} %.
           </li>
           <li>
-            Соломон скучает без ухода и грустит, если хозяин несчастен
-            (настроение ниже {RULES.gloomyOwnerMood}).
+            Настроение и чистота общие у игрока и Соломона. Соломон скучает без
+            ухода — это минус {RULES.petNeglectMood} настроения в день.
           </li>
           <li>
-            Репутация нужна для репетиторства и не растёт выше{" "}
-            {RULES.repCap}.
+            Поесть можно {RULES.mealsPerDay} раза в день: если Соломон сыт,
+            еда не лезет.
           </li>
-          <li>Абонемент в зал действует {RULES.gymDays} дней с покупки.</li>
         </ul>
       </div>
 
@@ -103,4 +168,11 @@ export default function RulesScreen() {
       </div>
     </section>
   );
+}
+
+/** Минуты от полуночи — в человеческий вид «09:00». */
+function format(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = Math.floor(minutes % 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }

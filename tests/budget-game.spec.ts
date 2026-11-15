@@ -1,22 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  morning,
+  feedAndPay,
+  resolveEventIfOpen,
+  sleepAndNextDay,
+  startGame,
+} from "./budget-flow";
 
 /**
  * Сквозной сценарий игры «Белка Соломон».
  *
- * Проверяет полный цикл: меню → неделя с событиями → итоговый экран.
+ * Проверяет полный цикл: меню → брифинг → неделя с событиями → итоговый
+ * экран.
  */
-
-/** Закрыть открытое событие, если оно есть. */
-async function resolveEventIfOpen(page: Page) {
-  for (const name of [/Автобус/, /^Ремонт/, /Подарок и праздник/]) {
-    const button = page.getByRole("button", { name });
-    if (await button.isVisible().catch(() => false)) {
-      await button.click();
-      await expect(button).toBeHidden();
-      return;
-    }
-  }
-}
 
 /**
  * Дождаться, пока автосохранение запишет нужный день.
@@ -60,32 +56,38 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
-test("игра: меню, неделя и итоговый экран", async ({ page }) => {
+test("игра: меню, брифинг, неделя и итоговый экран", async ({ page }) => {
   await page.getByRole("button", { name: /^Игра$/ }).click();
 
   await expect(page.getByText("Белка Соломон")).toBeVisible();
   await page.getByRole("button", { name: /Начать/i }).click();
 
-  // День 1: шесть шкал (включая чистоту Соломона) и кошелёк.
-  await expect(page.getByText(/День 1 из 7/)).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(6);
+  // Брифинг: знакомство с белкой и объяснение обязательных расходов.
+  await expect(page.getByText(/Знакомьтесь: это Соломон/)).toBeVisible();
+  await expect(page.getByText("Обязательные", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Понятно, начинаем/i }).click();
 
-  // Шесть шкал с прогресс-баром — проверяем, что они не пустые.
+  // День 1: четыре шкалы (настроение, энергия, сытость, чистота) и кошелёк.
+  await expect(page.getByText(/День 1 из 7/)).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(4);
+
+  // Четыре шкалы с прогресс-баром — проверяем, что они не пустые.
   const bars = page.getByRole("progressbar");
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     await expect(bars.nth(i)).toBeVisible();
   }
 
-  // Проходим неделю: закрываем события и заканчиваем дни.
+  // Утром выбираем завтрак и дорогу.
+  await expect(page.getByLabel("Утро")).toBeVisible();
+  await morning(page);
+
+  // Проходим неделю: каждое утро, событие, обязательный платёж и сон.
   for (let day = 1; day <= 7; day += 1) {
+    if (day > 1) await morning(page);
     await resolveEventIfOpen(page);
-    const finish = page.getByRole("button", { name: "Закончить день" });
-    // Пока открыто событие, день закончить нельзя.
-    await expect(finish).toBeEnabled();
-    await finish.click();
+    await feedAndPay(page);
+    await sleepAndNextDay(page);
     if (day < 7) {
-      // Ждём отрисовку следующего дня — событие (если оно есть) рисуется
-      // вместе с ним, поэтому следующая проверка уже надёжна.
       await expect(page.getByText(`День ${day + 1} из 7`)).toBeVisible();
     }
   }
@@ -99,13 +101,12 @@ test("игра: меню, неделя и итоговый экран", async ({
 });
 
 test("игра: прогресс сохраняется после перезагрузки", async ({ page }) => {
-  await page.getByRole("button", { name: /^Игра$/ }).click();
-  await page.getByRole("button", { name: /Начать/i }).click();
-  await expect(page.getByText(/День 1 из 7/)).toBeVisible();
+  await startGame(page);
 
   // Делаем действие, чтобы состояние изменилось.
-  await page.getByRole("button", { name: /Помощь по хозяйству/ }).click();
-  await page.getByRole("button", { name: "Закончить день" }).click();
+  await morning(page);
+  await page.getByRole("button", { name: /Курьерская доставка/ }).click();
+  await sleepAndNextDay(page);
   await expect(page.getByText(/День 2 из 7/)).toBeVisible();
   // Ждём, пока автосохранение допишет новый день: без этого перезагрузка
   // успела бы загрузить предыдущее состояние.

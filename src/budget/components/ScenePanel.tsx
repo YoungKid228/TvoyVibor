@@ -7,16 +7,16 @@ import type { Location } from "../core/types";
  * Сцена дня: фон локации, на ней Соломон и кнопки-переключатели.
  *
  * Фоны приходят без персонажа (`src/assets/backgrounds/loc-*.png`), поэтому
- * спрайт ставится поверх по координатам локации: точка стояния подобрана так,
- * чтобы белка стояла на полу/снегу и не закрывала важные детали сцены.
+ * спрайт ставится поверх по координатам локации: точка стояния подобрана по
+ * макетам в `backgrounds/preview- того как должно быть`.
  *
  * Кнопки вкладок живут прямо на кадре — как на макете: одна сверху слева и
- * три столбиком справа. Они же переключают локацию: «Заработать» открывает
- * город, «Потратить» — Арбат, «Отдохнуть» — общежитие, «Соломон» — ванную.
+ * столбик справа. Они же переключают локацию: «Заработать» открывает город,
+ * «Потратить» — Арбат, «Соломон» — ванную.
  */
 
 /** Вкладки действий — они же переключатели локаций. */
-export type SceneTab = "work" | "spend" | "rest" | "pet";
+export type SceneTab = "work" | "spend" | "solomon";
 
 type TabButton = {
   id: SceneTab;
@@ -29,9 +29,9 @@ type TabButton = {
 /**
  * Раскладка кнопок по кадру.
  *
- * Верхняя левая — первая вкладка, справа в столбик — остальные три.
- * Правая колонка начинается с 70 % ширины, а персонаж нигде не доходит до
- * этих 70 %, поэтому кнопки не наезжают на белку.
+ * Верхняя левая — первая вкладка, справа в столбик — остальные. Правая
+ * колонка начинается с 70 % ширины, а персонаж нигде не доходит до этих
+ * 70 %, поэтому кнопки не наезжают на белку.
  */
 const TAB_BUTTONS: TabButton[] = [
   {
@@ -47,18 +47,22 @@ const TAB_BUTTONS: TabButton[] = [
     spot: { left: "70%", top: "4%", width: "26.5%", height: "20%" },
   },
   {
-    id: "rest",
-    label: "Отдохнуть",
-    icon: "ui/tab-rest",
-    spot: { left: "70%", top: "33.5%", width: "26.5%", height: "20%" },
-  },
-  {
-    id: "pet",
+    id: "solomon",
     label: "Соломон",
     icon: "ui/tab-pet",
-    spot: { left: "70%", top: "62%", width: "26.5%", height: "20%" },
+    spot: { left: "70%", top: "33.5%", width: "26.5%", height: "20%" },
   },
 ];
+
+/** Нижний правый угол — не кнопка, а часы: сколько времени осталось до ночи. */
+const SLEEP_SPOT = {
+  left: "2%",
+  top: "2%",
+  width: "16%",
+  height: "12%",
+};
+
+const CLOCK_SPOT = { left: "70%", top: "62%", width: "26.5%", height: "20%" };
 
 /**
  * Доля высоты канваса спрайта, которую занимает сам персонаж.
@@ -83,9 +87,26 @@ type Props = {
   tab: SceneTab;
   /** Переключение вкладки (= смена локации). */
   onTab: (tab: SceneTab) => void;
+  /** Текущее время суток, минуты от 00:00. */
+  clock: number;
+  /** Короткая подпись того, чем занят игрок сейчас. */
+  phaseLabel: string;
   /** Заблокированы ли переключатели (открыто событие). */
   disabled?: boolean;
+  /** Доступен ли сон (иначе кнопка показывает причину). */
+  canSleep: boolean;
+  /** Почему сон недоступен. */
+  sleepHint?: string | null;
+  /** Нажатие «Поспать» — открывает подтверждение. */
+  onSleep: () => void;
 };
+
+/** Часы в виде «09:40». */
+export function formatClock(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = Math.floor(minutes % 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 export default function ScenePanel({
   location,
@@ -93,7 +114,12 @@ export default function ScenePanel({
   cleanliness,
   tab,
   onTab,
+  clock,
+  phaseLabel,
   disabled = false,
+  canSleep,
+  sleepHint = null,
+  onSleep,
 }: Props) {
   const background = iconUrl(location.background);
   const spot = location.character;
@@ -168,6 +194,40 @@ export default function ScenePanel({
           </button>
         );
       })}
+
+      {/* Сон: кнопка всегда на виду — она закрывает день. */}
+      <button
+        type="button"
+        onClick={onSleep}
+        disabled={!canSleep}
+        title={sleepHint ?? "Закончить день сном"}
+        className="absolute flex min-h-11 items-center justify-center gap-1 rounded-lg border-2 border-stone-800/70 bg-stone-900/75 px-2 text-[11px] font-bold leading-tight text-stone-50 transition hover:bg-stone-800/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+        style={{
+          left: SLEEP_SPOT.left,
+          top: SLEEP_SPOT.top,
+          width: SLEEP_SPOT.width,
+          height: SLEEP_SPOT.height,
+        }}
+      >
+        <Icon name="ui/ui-clock" alt="" size={18} className="flex-shrink-0" />
+        <span>Поспать</span>
+      </button>
+
+      {/* Часы: сколько времени в сутках и чем занят игрок. */}
+      <div
+        className="absolute flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-stone-800/70 bg-stone-900/70 px-1 py-1 text-center text-stone-50"
+        style={{
+          left: CLOCK_SPOT.left,
+          top: CLOCK_SPOT.top,
+          width: CLOCK_SPOT.width,
+          height: CLOCK_SPOT.height,
+        }}
+      >
+        <span className="font-mono text-lg font-bold leading-none">
+          {formatClock(clock)}
+        </span>
+        <span className="text-[10px] leading-tight opacity-90">{phaseLabel}</span>
+      </div>
 
       {/* Подпись сцены: где мы и в каком он состоянии. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pb-1.5 pt-6">

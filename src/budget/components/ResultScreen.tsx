@@ -36,15 +36,15 @@ export default function ResultScreen({ state, onRestart, onMenu }: Props) {
           />
           <GradeCard
             title="Оценка по счастью"
-            value={`${s.avgSolomon.toFixed(1)}`}
-            grade={s.solomonGrade}
+            value={`${s.avgMood.toFixed(1)}`}
+            grade={s.moodGrade}
             iconName="ui/heart-3"
           />
           <GradeCard
-            title="Ваше настроение"
-            value={`${s.avgMood.toFixed(1)}`}
-            grade={s.moodGrade}
-            iconName="ui/heart-2"
+            title="Средняя чистота"
+            value={`${s.avgCleanliness.toFixed(1)}`}
+            grade={s.avgCleanliness >= 60 ? "Чистота в порядке" : "Грязь накапливается"}
+            iconName="ui/spend-shower"
           />
         </div>
       </header>
@@ -122,7 +122,8 @@ export default function ResultScreen({ state, onRestart, onMenu }: Props) {
         aria-label="Рекомендации"
         className="rounded-xl border border-stone-300 bg-white p-4 shadow-[3px_3px_0_#d6d3d1]"
       >
-        <h3 className="text-lg font-bold text-stone-900">
+        <h3 className="flex items-center gap-2 text-lg font-bold text-stone-900">
+          <Icon name="ui/ui-recommend" alt="" size={20} />
           Что стоит изменить
         </h3>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-stone-700">
