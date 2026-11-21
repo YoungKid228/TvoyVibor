@@ -1,27 +1,18 @@
 import {
   DAY,
+  ENTERTAINMENT_SPENDS,
   RULES,
   SCENARIOS,
   eventsForScenario,
-  jobById,
   professionById,
   spendById,
   transportById,
 } from "../data/scenario";
 import { canPay, payFlexible, save, withdraw } from "./finance";
-import {
-  addRep,
-  clampScales,
-  classes,
-  decay,
-  isBurntOut,
-  shiftPay,
-  sleep,
-} from "./mood";
+import { addRep, clampScales, classes, decay, sleep } from "./mood";
 import type {
   GameEvent,
   GameState,
-  JobId,
   LossReason,
   ProfessionId,
   ScenarioKey,
@@ -43,11 +34,6 @@ import type {
  * Все guard'ы (одноразовость платежей, событий, смен) живут здесь:
  * повторное действие не должно менять баланс.
  */
-
-/** Ключ счётчика смен конкретной работы: неделя + работа. */
-function weekJobKey(week: number, jobId: string): string {
-  return `${week}:${jobId}`;
-}
 
 /** Создать новое состояние игры. */
 export function createInitialState(
@@ -75,9 +61,6 @@ export function createInitialState(
     items: [],
     income: 0,
     expenses: 0,
-    shifts: 0,
-    weekShifts: {},
-    weekJobs: {},
     spentByCategory: {
       обязательные: 0,
       быт: 0,
@@ -96,10 +79,12 @@ export function createInitialState(
     sleepsToday: 0,
     petsToday: 0,
     washesToday: 0,
+    laundriesToday: 0,
+    funToday: 0,
     breakfastToday: false,
     transportToday: null,
     mealsToday: 0,
-    preparedMeal: false,
+    mealStock: { servings: 0, preparedOnDay: 0 },
     lessonsToday: false,
     lessonStreak: 0,
     missedLessons: 0,
@@ -108,7 +93,8 @@ export function createInitialState(
     internetUntil: scenario.internetTrialDays,
     transitUntil: 0,
     laundryDay: 1,
-    neglectDays: 0,
+    collapseDays: 0,
+    treatmentBills: 0,
     lost: false,
     lossReason: null,
     itemDays: {},
@@ -151,42 +137,6 @@ export function transportCost(state: GameState, transportId: TransportId): numbe
   return item.cost;
 }
 
-/** Проверка, доступна ли работа. Возвращает причину отказа или null. */
-export function jobBlockReason(
-  state: GameState,
-  jobId: JobId,
-): string | null {
-  const job = jobById(jobId);
-  if (!job) return "нет такой работы";
-  if (state.pendingEvent) return "сначала закрой событие";
-  if (state.phase !== "free") return "работать можно только после пар";
-  if (job.requires === "internet" && (!hasInternet(state) || !hasPhone(state))) {
-    return "нужен интернет и телефон";
-  }
-  if (
-    job.requires === "internet+lessons" &&
-    (!hasInternet(state) ||
-      state.lessonStreak < RULES.lessonStreakForTutor)
-  ) {
-    return `нужен интернет и ${RULES.lessonStreakForTutor} дня уроков подряд`;
-  }
-  if (job.requires === "day2" && state.day < 2) {
-    return "лаборантом можно со второго дня";
-  }
-  if (state.clock + job.minutes > DAY.nightMinutes) {
-    return "не хватит времени до ночи";
-  }
-  const cap = RULES.weeklyShiftCap + professionById(state.professionId).shiftBonus;
-  if ((state.weekShifts[state.week] ?? 0) >= cap) {
-    return "недельный лимит смен исчерпан";
-  }
-  if ((state.weekJobs[weekJobKey(state.week, jobId)] ?? 0) >= job.limit) {
-    return "лимит смен";
-  }
-  if (state.scales.energy < job.energyCost) return "нет энергии";
-  return null;
-}
-
 /**
  * Проверка, доступна ли трата.
  *
@@ -201,27 +151,63 @@ export function spendBlockReason(
   const spend = spendById(spendId);
   if (!spend) return "нет такой траты";
   if (state.pendingEvent) return "сначала закрой событие";
+  // Время и фаза дня проверяются здесь, а не внутри buy(): интерфейс
+  // спрашивает причину ДО действия — иначе локация менялась бы даже
+  // тогда, когда действие выполнить нельзя.
+  if (state.phase === "done") return "день уже закончился";
+  if (state.phase === "morning") {
+    if (!spendId.startsWith("food-")) return "утром можно только позавтракать";
+    if (state.breakfastToday) return "завтрак уже был";
+    if (state.clock + spend.minutes > DAY.morningEnd) {
+      return "не успеваешь к парам";
+    }
+  } else if (state.phase !== "free") {
+    return "сейчас всё занято: сначала пары";
+  } else if (state.clock + spend.minutes > DAY.nightMinutes) {
+    return "уже ночь, пора спать";
+  }
   if (spendId === "pet" && state.petsToday >= RULES.petPerDay) {
     return `поглаживаний на сегодня хватает (${RULES.petPerDay})`;
   }
   if (spendId === "wash" && state.washesToday >= RULES.washPerDay) {
     return `мытьё на сегодня уже было (${RULES.washPerDay})`;
   }
+  // Стирку нельзя повторять весь вечер: иначе вечером можно вымыть
+  // весь кошелёк в сорок нажатий.
+  if (spendId === "laundry" && state.laundriesToday >= RULES.laundryPerDay) {
+    return `стирка на сегодня уже была (${RULES.laundryPerDay})`;
+  }
+  // Запас еды кончился — это точнее, чем «сыт»: можно доесть остатки.
+  if (spend.requires === "mealStock" && state.mealStock.servings <= 0) {
+    return "запас еды пуст: сначала приготовь еду";
+  }
   // Сытый Соломон больше не ест: два приёма пищи в день — и всё.
   if (spendId.startsWith("food-") && state.mealsToday >= RULES.mealsPerDay) {
     return `Соломон сыт: еда больше не лезет (${RULES.mealsPerDay} приёма пищи в день)`;
   }
-  if (spend.requires === "preparedMeal" && !state.preparedMeal) {
-    return "нечего есть: сначала приготовь еду";
+  // Требований может быть несколько ("mood+clean"): проверяем по очереди и
+  // показываем игроку первое невыполненное.
+  for (const token of (spend.requires ?? "").split("+")) {
+    if (!token) continue;
+    if (token === "internet" && !hasInternet(state)) {
+      return "нет интернета";
+    }
+    if (token === "mood" && state.scales.mood < RULES.moodForFun) {
+      return "настроение плохое — не до развлечений";
+    }
+    // Грязного Соломона не пускают в общественные места. Порог — «сильно
+    // грязный» (≤ 33), а не ноль: спрайт грязного Соломона виден игроку,
+    // и правило должно быть видно вместе с ним.
+    if (token === "clean" && state.scales.cleanliness <= RULES.dirtyAt) {
+      return "Соломон грязный — в общественное место его не пустят";
+    }
   }
-  if (spend.requires === "internet" && !hasInternet(state)) {
-    return "нет интернета";
-  }
+  // Голодный Соломон не развлекается: сначала накормить.
   if (
-    spend.requires === "mood" &&
-    state.scales.mood < RULES.moodForFun
+    ENTERTAINMENT_SPENDS.includes(spendId) &&
+    state.scales.hunger <= 0
   ) {
-    return "настроение плохое — не до развлечений";
+    return "Соломон голоден — не до развлечений";
   }
   // Долга нет: без денег трата не проходит.
   if (spend.cost > 0 && !canPay(state, spend.cost)) {
@@ -265,49 +251,9 @@ export function laundryDue(state: GameState): boolean {
   return state.day - state.laundryDay >= scenario.laundryEveryDays;
 }
 
-/** Уйдёт ли трата в долг. */
-export function goesIntoDebt(state: GameState, spendId: SpendId): boolean {
-  const spend = spendById(spendId);
-  if (!spend || spend.cost === 0) return false;
-  return state.cash < spend.cost && state.savings < spend.cost - state.cash;
-}
-
 /* ------------------------------------------------------------------ */
 /* Действия игрока                                                     */
 /* ------------------------------------------------------------------ */
-
-/** Выйти на смену. Работать можно только после пар. */
-export function work(state: GameState, jobId: JobId): string {
-  const job = jobById(jobId);
-  if (!job) return "нет такой работы";
-  const reason = jobBlockReason(state, jobId);
-  if (reason) return reason;
-
-  // Шкалы приводятся в диапазон ДО расчёта дохода: иначе множитель
-  // посчитался бы от значения выше 100 и смена принесла бы больше базовой
-  // ставки.
-  clampScales(state);
-
-  const burnt = isBurntOut(state.scales.mood);
-  const base = job.pay + professionById(state.professionId).payBonus;
-  const gain = shiftPay(base, state.scales.mood);
-  state.cash += gain;
-  state.income += gain;
-  state.scales.energy = Math.max(0, state.scales.energy - job.energyCost);
-  state.scales.mood = Math.max(
-    0,
-    state.scales.mood - job.moodCost * (burnt ? 2 : 1),
-  );
-  state.clock += job.minutes;
-  clampScales(state);
-  const key = weekJobKey(state.week, jobId);
-  state.weekJobs[key] = (state.weekJobs[key] ?? 0) + 1;
-  state.weekShifts[state.week] = (state.weekShifts[state.week] ?? 0) + 1;
-  state.shifts += 1;
-  const label = `работа: ${job.label} +${gain}`;
-  state.dayActions.push(label);
-  return label + (burnt ? " (выгорание)" : "");
-}
 
 /**
  * Потратить деньги и время.
@@ -317,19 +263,6 @@ export function work(state: GameState, jobId: JobId): string {
 export function buy(state: GameState, spendId: SpendId): string {
   const spend = spendById(spendId);
   if (!spend) return "нет такой траты";
-
-  if (state.phase === "done") return "день уже закончился";
-  if (state.phase === "morning") {
-    if (!spendId.startsWith("food-")) return "утром можно только позавтракать";
-    if (state.breakfastToday) return "завтрак уже был";
-    if (state.clock + spend.minutes > DAY.morningEnd) {
-      return "не успеваешь к парам";
-    }
-  } else if (state.phase !== "free") {
-    return "сейчас всё занято: сначала пары";
-  } else if (state.clock + spend.minutes > DAY.nightMinutes) {
-    return "уже ночь, пора спать";
-  }
 
   const reason = spendBlockReason(state, spendId);
   if (reason) return reason;
@@ -355,8 +288,24 @@ export function buy(state: GameState, spendId: SpendId): string {
   if (spendId.startsWith("food-")) {
     state.mealsToday += 1;
     state.breakfastToday = true;
-    if (spend.preparesMeal) state.preparedMeal = true;
-    if (spendId === "food-leftovers") state.preparedMeal = false;
+    if (spend.preparesMeal) {
+      // Приготовили еду: одна порция съедена сразу, остальные — запас
+      // на сегодня и на завтра. Новая порция заменяет старый запас:
+      // еда хранится ровно два дня, а не копится.
+      state.mealStock = {
+        servings: RULES.mealServings - 1,
+        preparedOnDay: state.day,
+      };
+    } else if (spendId === "food-leftovers") {
+      state.mealStock = {
+        servings: Math.max(0, state.mealStock.servings - 1),
+        preparedOnDay: state.mealStock.preparedOnDay,
+      };
+    }
+  }
+  // Развлечения считаем отдельно: без них за день Соломон грустит.
+  if (ENTERTAINMENT_SPENDS.includes(spendId)) {
+    state.funToday += 1;
   }
   if (spendId === "pet") {
     // Поглаживание бесплатно, поэтому у него суточный лимит: иначе
@@ -387,7 +336,10 @@ export function buy(state: GameState, spendId: SpendId): string {
       scenario.days,
     );
   }
-  if (spendId === "laundry") state.laundryDay = state.day;
+  if (spendId === "laundry") {
+    state.laundryDay = state.day;
+    state.laundriesToday += 1;
+  }
   state.clock += spend.minutes;
   clampScales(state);
 
@@ -395,6 +347,55 @@ export function buy(state: GameState, spendId: SpendId): string {
   state.dayActions.push(label);
   advance(state);
   return label;
+}
+
+/**
+ * Почему нельзя выбрать дорогу.
+ *
+ * Отказ вынесен из действия отдельно: интерфейс спрашивает причину ДО
+ * покупки, иначе игрок увидит отказ только постфактум.
+ */
+export function transportBlockReason(
+  state: GameState,
+  transportId: TransportId,
+): string | null {
+  if (state.phase !== "morning") return "дорога выбирается только утром";
+  if (state.transportToday) return "дорога уже выбрана";
+  const item = transportById(transportId);
+  if (!item) return "нет такого транспорта";
+  // Грязного Соломона не пускают в общественный транспорт. Порог — «сильно
+  // грязный» (≤ 33): столько грязи видно на спрайте, и правило должно
+  // быть видно вместе с ним.
+  if (
+    (transportId === "bus" || transportId === "taxi") &&
+    state.scales.cleanliness <= RULES.dirtyAt
+  ) {
+    return "Соломон грязный — в общественное место его не пустят";
+  }
+  if (transportId === "walk" && isSnowDay(state)) {
+    // Пешком в метель не ходят — но если весь транспорт закрыт из-за грязи,
+    // игрок останется без дороги на пары. Тогда идти можно, но Соломон
+    // замёрзнет.
+    if (!dirtyBlocksTransport(state)) return "в метель пешком не дойдёшь";
+  }
+  if (state.clock + item.minutes > DAY.morningEnd) {
+    return "не успеваешь к парам";
+  }
+  const cost = transportCost(state, transportId);
+  if (cost > 0 && !canPay(state, cost)) {
+    return "не хватает денег на дорогу";
+  }
+  return null;
+}
+
+/**
+ * Закрыт ли весь платный транспорт из-за грязи.
+ *
+ * Нужно, чтобы в метель можно было дойти пешком: иначе грязный Соломон
+ * остался бы без дороги на пары вообще.
+ */
+export function dirtyBlocksTransport(state: GameState): boolean {
+  return state.scales.cleanliness <= RULES.dirtyAt;
 }
 
 /**
@@ -407,27 +408,36 @@ export function chooseTransport(
   state: GameState,
   transportId: TransportId,
 ): string {
-  if (state.phase !== "morning") return "дорога выбирается только утром";
-  if (state.transportToday) return "дорога уже выбрана";
+  const reason = transportBlockReason(state, transportId);
+  if (reason) return reason;
   const item = transportById(transportId);
   if (!item) return "нет такого транспорта";
-  if (transportId === "walk" && isSnowDay(state)) {
-    return "в метель пешком не дойдёшь";
-  }
-  if (state.clock + item.minutes > DAY.morningEnd) {
-    return "не успеваешь к парам";
-  }
 
   const cost = transportCost(state, transportId);
   if (cost > 0) {
     payFlexible(state, cost, "обязательные");
   }
   state.scales.energy = Math.max(0, state.scales.energy - item.energyCost);
+  state.scales.hunger = Math.max(0, state.scales.hunger - item.hungerCost);
   state.scales.mood += item.moodGain;
   if (item.dirt > 0) {
     state.scales.cleanliness = Math.max(
       0,
       state.scales.cleanliness - item.dirt,
+    );
+  }
+  // Обморок на морозе: грязный Соломон в метель идёт пешком и мёрзнет.
+  if (transportId === "walk" && isSnowDay(state)) {
+    state.scales.mood = Math.max(
+      0,
+      state.scales.mood - RULES.sickMoodCost,
+    );
+    state.scales.energy = Math.max(
+      0,
+      state.scales.energy - RULES.sickEnergyCost,
+    );
+    state.dayNotes.push(
+      `настроение −${RULES.sickMoodCost}, энергия −${RULES.sickEnergyCost}: Соломон замёрз в метель`,
     );
   }
   state.clock += item.minutes;
@@ -437,6 +447,19 @@ export function chooseTransport(
   state.dayActions.push(label);
   advance(state);
   return label;
+}
+
+/**
+ * Решение «ничего не платить».
+ *
+ * Игрок сам отказывается от обязательных платежей на сегодня. Это не
+ * действие с ценой, а запись в журнал дня: ничего не тратится, но решение
+ * остаётся в истории — как и должно быть в игре про бюджет.
+ */
+export function skipPayments(state: GameState): string {
+  state.dayActions.push("платежи: ничего не плачу");
+  state.dayNotes.push("платежи отложены: сегодня ничего не платим");
+  return "платежи отложены";
 }
 
 /** Сон: закрывает день. */
@@ -478,6 +501,10 @@ export function resolveEvent(state: GameState, optionId: string): string {
   let label = "";
   if (event.id === "phone") {
     if (state.phoneResolved) return "событие уже закрыто";
+    // Долга нет: если денег не хватает, событие не закрывается.
+    if (option.cost > 0 && !canPay(state, option.cost)) {
+      return "не хватает денег";
+    }
     payFlexible(state, option.cost, "телефон");
     state.scales.mood += option.moodGain;
     state.phoneResolved = true;
@@ -486,6 +513,10 @@ export function resolveEvent(state: GameState, optionId: string): string {
     label = `телефон: ${optionId} −${option.cost}`;
   } else {
     if (state.giftResolved) return "событие уже закрыто";
+    // Долга нет: если денег не хватает, событие не закрывается.
+    if (option.cost > 0 && !canPay(state, option.cost)) {
+      return "не хватает денег";
+    }
     payFlexible(state, option.cost, "подарки");
     state.scales.mood += option.moodGain;
     addRep(state, 1);
@@ -570,14 +601,24 @@ export function startDay(state: GameState): string[] {
   state.sleepsToday = 0;
   state.petsToday = 0;
   state.washesToday = 0;
+  state.laundriesToday = 0;
+  state.funToday = 0;
   state.breakfastToday = false;
   state.transportToday = null;
   state.mealsToday = 0;
-  state.preparedMeal = false;
   state.lessonsToday = false;
   state.clock = DAY.startMinutes;
   state.phase = "morning";
   state.dayNotes = decay(state);
+  // Еда хранится два дня: приготовили в день D — доступна в D и D+1,
+  // а на D+2 она портится и пропадает.
+  if (
+    state.mealStock.servings > 0 &&
+    state.day - state.mealStock.preparedOnDay >= RULES.mealKeepsDays
+  ) {
+    state.mealStock = { servings: 0, preparedOnDay: 0 };
+    state.dayNotes.push("еда испортилась: запас пролежал слишком долго");
+  }
   // Неоплаченное жильё — проигрыш сразу, а не в конце дня: ждать следующей
   // ночи, чтобы узнать о выселении, незачем.
   const scenario = SCENARIOS[state.scenarioKey];
@@ -593,13 +634,13 @@ export function startDay(state: GameState): string[] {
 export const LOSS_REASONS: Record<LossReason["id"], LossReason> = {
   housing: {
     id: "housing",
-    title: "Соломона выселили",
-    text: "Жильё в общежитии не было оплачено вовремя. Соломона выселили, а вам пришлось разбираться самому — и толку от этого не вышло.",
+    title: "Вас выселили из общежития",
+    text: "Жильё в общежитии не было оплачено вовремя. Вас выселили, а коробку с орехами пришлось забрать с собой.",
   },
-  neglect: {
-    id: "neglect",
-    title: "За Соломоном не уследили",
-    text: "Два дня подряд Соломон оставался голодным и брошенным. Ему стало плохо, и к счастью, кто-то другой о нём смог позаботиться лучше.",
+  depression: {
+    id: "depression",
+    title: "Соломон впал в депрессию",
+    text: "Настроение упало до нуля: без развлечений и без заботы Соломону стало так плохо, что он больше не встал. Развлекайтесь каждый день — и следите за настроением.",
   },
 };
 
@@ -634,17 +675,38 @@ export function endDay(state: GameState, actions: string[]): void {
     state.dayNotes.push("настроение −5: Соломону нечего надеть — постирайте вещи");
   }
 
-  // 3. Пренебрежение: голодный или грустный Соломон два дня подряд.
-  // Проигрыш завязан на голод: пока еда есть, за Соломоном можно не уследить
-  // (он будет скучать, развлечения закроются), но не бросить его голодным.
-  const neglected = state.scales.hunger <= RULES.neglectHunger;
-  state.neglectDays = neglected ? state.neglectDays + 1 : 0;
-  if (state.neglectDays >= RULES.neglectDaysToLose) {
-    state.lost = true;
-    state.lossReason = LOSS_REASONS.neglect;
+  // 3. День без радости: без развлечений Соломон грустит.
+  if (state.funToday < RULES.funPerDay) {
+    state.scales.mood = Math.max(0, state.scales.mood - RULES.noFunMoodPenalty);
+    state.dayNotes.push(
+      `настроение −${RULES.noFunMoodPenalty}: день без развлечений`,
+    );
   }
 
-  // 4. Жильё: не заплатил к сроку — выселение.
+  // 4. Ноль на шкале — это событие.
+  //   * энергия или сытость на нуле два дня подряд: Соломон теряет сознание,
+  //     и на лечение уходят деньги;
+  //   * настроение на нуле: депрессия, и на этом игра проиграна.
+  const collapsed = state.scales.energy <= 0 || state.scales.hunger <= 0;
+  state.collapseDays = collapsed ? state.collapseDays + 1 : 0;
+  if (state.collapseDays >= RULES.collapseDaysToBill) {
+    state.collapseDays = 0;
+    state.treatmentBills += 1;
+    payFlexible(state, RULES.treatmentCost, "быт");
+    // Причина обморока разная: голод — одно, истощение — другое. Игрок
+    // должен понимать, что именно с ним случилось.
+    const cause = state.scales.hunger <= 0 ? "от голода" : "от истощения";
+    state.dayNotes.push(
+      `Соломон потерял сознание ${cause}: счёт на лечение −${RULES.treatmentCost}`,
+    );
+    state.dayActions.push(`лечение −${RULES.treatmentCost}`);
+  }
+  if (state.scales.mood <= 0) {
+    state.lost = true;
+    state.lossReason = LOSS_REASONS.depression;
+  }
+
+  // 5. Жильё: не заплатил к сроку — выселение.
   if (!state.housingPaid && state.day >= scenario.housingDeadline) {
     state.lost = true;
     state.lossReason = LOSS_REASONS.housing;
@@ -694,10 +756,12 @@ export function normalizeState(state: GameState): GameState {
     sleepsToday: state.sleepsToday ?? 0,
     petsToday: state.petsToday ?? 0,
     washesToday: state.washesToday ?? 0,
+    laundriesToday: state.laundriesToday ?? 0,
+    funToday: state.funToday ?? 0,
     breakfastToday: state.breakfastToday ?? false,
     transportToday: state.transportToday ?? null,
     mealsToday: state.mealsToday ?? 0,
-    preparedMeal: state.preparedMeal ?? false,
+    mealStock: state.mealStock ?? { servings: 0, preparedOnDay: 0 },
     lessonsToday: state.lessonsToday ?? false,
     lessonStreak: state.lessonStreak ?? 0,
     missedLessons: state.missedLessons ?? 0,
@@ -706,7 +770,8 @@ export function normalizeState(state: GameState): GameState {
     internetUntil: state.internetUntil ?? 0,
     transitUntil: state.transitUntil ?? 0,
     laundryDay: state.laundryDay ?? 1,
-    neglectDays: state.neglectDays ?? 0,
+    collapseDays: state.collapseDays ?? 0,
+    treatmentBills: state.treatmentBills ?? 0,
     lost: state.lost ?? false,
     lossReason: state.lossReason ?? null,
     clock: state.clock ?? DAY.startMinutes,

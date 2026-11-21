@@ -1,36 +1,40 @@
-import PixelButton from "../../components/PixelButton";
 import Icon from "./Icon";
-import { JOBS, RULES, SPENDS } from "../data/scenario";
-import {
-  goesIntoDebt,
-  jobBlockReason,
-  spendBlockReason,
-} from "../core/reducer";
-import type { GameState, JobId, SpendId } from "../core/types";
-import type { SceneTab } from "./ScenePanel";
+import { RULES, SPENDS } from "../data/scenario";
+import { spendBlockReason } from "../core/reducer";
+import type { GameState, SpendId } from "../core/types";
 
 /**
- * Карточки действий в трёх вкладках: «Заработать», «Потратить», «Соломон».
+ * Содержимое шторки в свободное время.
  *
- * Вкладки-переключатели нарисованы на сцене (`ScenePanel`): они же
- * переключают локацию. Здесь — только содержимое активной вкладки.
+ * Разделы:
+ *   «Кошелёк»   — сколько денег осталось и сколько отложено;
+ *   «Развлечься» — кино, прогулка, тик-токи, компьютер;
+ *   «Кушать»    — еда и остатки приготовленного;
+ *   «Платежи»   — обязательные платежи и вариант «ничего не платить»;
+ *   «Соломон»   — помыться, погладить, сделать уроки.
  *
  * У каждого действия есть цена (время и, иногда, деньги) и последствия.
  * Недоступные действия подписаны причиной (лимит, нет энергии, нет
- * интернета), чтобы игрок понимал правила, а не угадывал их.
+ * интернета, грязный Соломон), чтобы игрок понимал правила, а не угадывал
+ * их.
  */
 
+/** Группа карточек в шторке. */
+export type SpendGroup = "fun" | "food" | "bills" | "care";
+
 /**
- * Вкладка «Потратить»: еда, обязательные платежи, развлечения.
+ * Раздел «Потратить»: еда, обязательные платежи, развлечения.
  *
- * Уход за Соломоном (pet, wash, lessons, shower) живёт только во вкладке
- * «Соломон» — одно действие не должно быть на двух вкладках.
+ * Обязательные платежи идут первыми: забыть их — значит выселение или
+ * пропавший интернет, и об этом лучше видеть сразу.
  */
-const SPEND_TABS: Record<SpendId, "food" | "bills" | "fun" | "care"> = {
+const SPEND_TABS: Record<SpendId, SpendGroup> = {
   "food-cheap": "food",
   "food-fast": "food",
   "food-luxe": "food",
   "food-leftovers": "food",
+  "food-coffee": "food",
+  "food-syrniki": "food",
   housing: "bills",
   internet: "bills",
   "transit-pass": "bills",
@@ -38,116 +42,78 @@ const SPEND_TABS: Record<SpendId, "food" | "bills" | "fun" | "care"> = {
   kino: "fun",
   park: "fun",
   tiktok: "fun",
+  computer: "fun",
   pet: "care",
   wash: "care",
   lessons: "care",
-  shower: "care",
 };
 
-const SPEND_GROUPS: { key: "food" | "bills" | "fun"; title: string }[] = [
-  { key: "food", title: "Еда — каждый день" },
-  { key: "bills", title: "Обязательные платежи" },
-  { key: "fun", title: "Развлечения" },
-];
-
-/** Вкладка «Соломон»: уход за питомцем и за собой. */
-const CARE_SPENDS: SpendId[] = ["pet", "wash", "lessons", "shower"];
+/** Заголовки групп — как в шторке. */
+export const GROUP_TITLES: Record<SpendGroup, { title: string; icon: string }> =
+  {
+    fun: { title: "Развлечься", icon: "ui/spend-kino" },
+    food: { title: "Кушать", icon: "ui/spend-breakfast" },
+    bills: { title: "Платежи", icon: "ui/ui-mandatory" },
+    care: { title: "Соломон", icon: "ui/tab-pet" },
+  };
 
 type Props = {
   state: GameState;
-  /** Активная вкладка — её содержимое и показываем. */
-  tab: SceneTab;
-  onWork: (jobId: JobId) => void;
+  /** Какая группа карточек показана. */
+  group: SpendGroup;
   onBuy: (spendId: SpendId) => void;
+  /** Решение «ничего не платить». */
+  onSkipPayments?: () => void;
 };
 
 export default function ActionCards({
   state,
-  tab,
-  onWork,
+  group,
   onBuy,
+  onSkipPayments,
 }: Props) {
-  const weekShifts = state.weekShifts[state.week] ?? 0;
+  const cards = SPENDS.filter((spend) => SPEND_TABS[spend.id] === group);
 
   return (
-    <section aria-label="Действия" className="flex flex-col gap-3">
-      <p className="text-xs text-stone-600">
-        {tab === "work" &&
-          `Смены на этой неделе: ${weekShifts} из ${RULES.weeklyShiftCap}`}
-        {tab === "spend" &&
-          "Обязательные платежи — разово и на период. Остальное по желанию."}
-        {tab === "solomon" &&
-          "Соломону нужны ласка, вода и чистая одежда. Сон закрывает день."}
-      </p>
-
-      {tab === "work" && (
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {JOBS.map((job) => {
-            const blocked = jobBlockReason(state, job.id);
-            return (
-              <ActionCard
-                key={job.id}
-                title={job.label}
-                price={`+${job.pay.toLocaleString("ru-RU")} ₽`}
-                icon={job.icon}
-                minutes={job.minutes}
-                effects={[
-                  { text: `энергия −${job.energyCost}`, tone: "cost" },
-                  { text: `настроение −${job.moodCost}`, tone: "cost" },
-                ]}
-                blocked={blocked}
-                onClick={() => onWork(job.id)}
-              />
-            );
-          })}
-        </ul>
+    <section
+      aria-label={GROUP_TITLES[group].title}
+      className="flex flex-col gap-2"
+    >
+      {group === "bills" && (
+        <p className="text-xs text-stone-600">
+          Обязательные платежи: их нельзя забыть. Жильё не оплачено вовремя —
+          выселение, без интернета пропадают тик-токи и игры.
+        </p>
       )}
 
-      {tab === "spend" && (
-        <>
-          {SPEND_GROUPS.map((group) => {
-            const cards = SPENDS.filter(
-              (spend) => SPEND_TABS[spend.id] === group.key,
-            );
-            if (cards.length === 0) return null;
-            return (
-              <div key={group.key}>
-                <h3 className="mb-1 mt-1 text-sm font-bold text-stone-700">
-                  {group.title}
-                </h3>
-                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {cards.map((spend) => (
-                    <SpendCard
-                      key={spend.id}
-                      state={state}
-                      spendId={spend.id}
-                      onBuy={onBuy}
-                    />
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </>
-      )}
+      <ul className="grid grid-cols-1 gap-2">
+        {cards.map((spend) => (
+          <SpendCard
+            key={spend.id}
+            state={state}
+            spendId={spend.id}
+            onBuy={onBuy}
+          />
+        ))}
+      </ul>
 
-      {tab === "solomon" && (
-        <>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {CARE_SPENDS.map((spendId) => (
-              <SpendCard
-                key={spendId}
-                state={state}
-                spendId={spendId}
-                onBuy={onBuy}
-              />
-            ))}
-          </ul>
-        </>
+      {/* «Ничего не платить» — честный вариант: игрок сам решает, что
+          обязательных платежей сегодня не будет. */}
+      {group === "bills" && onSkipPayments && (
+        <button
+          type="button"
+          onClick={onSkipPayments}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-stone-300 bg-white/60 px-3 py-2 text-xs font-bold text-stone-600 transition hover:border-orange-300 hover:text-orange-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+        >
+          <Icon name="ui/ui-recommend" alt="" size={18} />
+          Ничего не платить
+        </button>
       )}
     </section>
   );
 }
+
+type Effect = { text: string; tone: "gain" | "cost" };
 
 /** Карточка траты: цена, время, последствия и причина блокировки. */
 function SpendCard({
@@ -162,7 +128,6 @@ function SpendCard({
   const spend = SPENDS.find((item) => item.id === spendId);
   if (!spend) return null;
   const blocked = spendBlockReason(state, spendId);
-  const debt = goesIntoDebt(state, spendId);
   const effects: Effect[] = [];
 
   if (spend.moodGain) {
@@ -207,78 +172,61 @@ function SpendCard({
       tone: "cost",
     });
   }
-  // Долг разрешён, но игрок должен видеть его до покупки: долг должен быть
-  // осознанным решением, а не сюрпризом.
-  if (debt) {
-    effects.push({ text: "уйдёт в долг", tone: "cost" });
+  if (spendId === "laundry") {
+    effects.push({
+      text: `осталось ${Math.max(0, RULES.laundryPerDay - state.laundriesToday)} из ${RULES.laundryPerDay}`,
+      tone: "cost",
+    });
+  }
+  // Запас еды: сколько порций осталось и до какого дня они не испортятся.
+  if (spendId === "food-leftovers") {
+    effects.push({
+      text: `порций осталось: ${state.mealStock.servings}`,
+      tone: "cost",
+    });
+  }
+  if (spend.preparesMeal) {
+    effects.push({
+      text: `готовит ${RULES.mealServings} порции на ${RULES.mealKeepsDays} дня`,
+      tone: "gain",
+    });
+  }
+  // Развлечения: без них за день Соломон грустит.
+  if (SPEND_TABS[spendId] === "fun") {
+    effects.push({
+      text: `развлечений сегодня: ${state.funToday} из ${RULES.funPerDay}`,
+      tone: "cost",
+    });
   }
 
   return (
-    <ActionCard
-      title={spend.label}
-      price={
-        spend.cost === 0
-          ? "бесплатно"
-          : `−${spend.cost.toLocaleString("ru-RU")} ₽`
-      }
-      icon={spend.icon}
-      minutes={spend.minutes}
-      effects={effects}
-      blocked={blocked}
-      onClick={() => onBuy(spendId)}
-    />
-  );
-}
-
-type Effect = { text: string; tone: "gain" | "cost" };
-
-function ActionCard(
-  {
-    title,
-    price,
-    icon,
-    minutes,
-    effects,
-    blocked,
-    onClick,
-  }: {
-    title: string;
-    price: string;
-    icon: string;
-    /** Сколько времени занимает действие, минут. */
-    minutes: number;
-    effects: Effect[];
-    blocked: string | null;
-    onClick: () => void;
-  },
-) {
-  return (
     <li>
-      <PixelButton
+      <button
         type="button"
-        onClick={onClick}
+        onClick={() => onBuy(spendId)}
         disabled={Boolean(blocked)}
-        className="flex min-h-16 w-full flex-col items-start gap-1 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+        className={`flex min-h-16 w-full flex-col items-start gap-1 rounded-xl border-2 px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
+          blocked
+            ? "border-stone-200 bg-stone-100/70 opacity-70"
+            : "border-amber-200/70 bg-white hover:border-orange-300"
+        }`}
       >
         <span className="flex w-full items-baseline justify-between gap-2">
           <span className="flex items-center gap-2">
-            <Icon
-              name={icon}
-              alt={title}
-              size={24}
-              className="flex-shrink-0"
-            />
-            <span className="text-sm font-bold text-stone-900">{title}</span>
+            <Icon name={spend.icon} alt="" size={24} className="flex-shrink-0" />
+            <span className="text-sm font-bold text-stone-900">{spend.label}</span>
           </span>
-          <span className="shrink-0 font-mono text-xs text-stone-700">
-            {price}
+          <span className="shrink-0 font-mono text-xs font-bold text-stone-700">
+            {spend.cost === 0
+              ? "бесплатно"
+              : `−${spend.cost.toLocaleString("ru-RU")} ₽`}
           </span>
         </span>
         <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-          {minutes > 0 && (
+          {spend.minutes > 0 && (
             <span className="flex items-center gap-1 text-stone-600">
               <Icon name="ui/ui-clock" alt="" size={12} />
-              {minutes} мин
+              {spend.minutes} мин
             </span>
           )}
           {effects.map((effect) => (
@@ -295,7 +243,7 @@ function ActionCard(
             <span className="font-medium text-amber-700">— {blocked}</span>
           )}
         </span>
-      </PixelButton>
+      </button>
     </li>
   );
 }

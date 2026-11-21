@@ -4,8 +4,17 @@
 
 Скрипт правит существующий файл, а не пишет его заново: разделы, которые
 меня не трогают (meta, grades, professions, locations), сохраняются как есть.
-Новые разделы — «day» (часы), «transport» (утренний выбор дороги), «jobs»
-(три работы), «spends» (траты с временем), «rules» (константы модели).
+Новые разделы — «day» (часы), «transport» (утренний выбор дороги), «spends»
+(траты с временем), «rules» (константы модели).
+
+Изменения 19.11.2026 (правки заказчика):
+  * модуль «Заработать» убран целиком — работ в игре больше нет;
+  * «Помыться» осталось одно — мытьё Соломона;
+  * еда, приготовленная утром, хранится два дня и считается порциями;
+  * новое развлечение «Играть в компьютер» (нужен интернет);
+  * интернет подорожал на 1000 ₽;
+  * пары и дорога меняют сытость и чистоту;
+  * без развлечений за день Соломон грустит.
 """
 
 import collections
@@ -69,39 +78,19 @@ data["scenarios"] = collections.OrderedDict([
         ("laundryEveryDays", 3),     # как часто нужно стирать вещи
         ("phoneDay", 5), ("giftDay", 6),
         ("snowDays", [4]),           # дни снегопада
-        ("weeklyShiftCap", 10),
         ("hungerDecay", 25), ("cleanlinessDecay", 15),
     ])),
 ])
 
-# --------------------------------------------------------------- работы ---
-# Заработок урезан до трёх вариантов: курьер (интернет + телефон),
-# репетиторство (интернет + три дня уроков подряд) и лаборант в
-# университете. `requires` — условие доступности, `minutes` — время смены.
-data["jobs"] = [
-    {
-        "id": "courier", "label": "Курьерская доставка", "icon": "ui/job-courier",
-        "pay": 1600, "energyCost": 30, "moodCost": 4, "minutes": 180,
-        "requires": "internet", "limit": 10, "local": False,
-    },
-    {
-        "id": "tutor", "label": "Репетиторство", "icon": "ui/job-tutor",
-        "pay": 1400, "energyCost": 25, "moodCost": 3, "minutes": 150,
-        "requires": "internet+lessons", "limit": 10, "local": False,
-    },
-    {
-        "id": "lab", "label": "Лаборант в университете", "icon": "ui/loc-university",
-        "pay": 1300, "energyCost": 22, "moodCost": 2, "minutes": 150,
-        "requires": "day2", "limit": 10, "local": True,
-    },
-]
+# Модуль «Заработать» убран: раздел jobs удаляется из данных целиком.
+data.pop("jobs", None)
 
 # --------------------------------------------------------------- траты ---
 # У каждой траты есть время в минутах и место: по месту игра показывает
 # нужную сцену. `requires` — условие доступности.
 data["spends"] = [
     # Еда: три уровня по цене. Дешёвая готовится долго и отнимает силы,
-    # зато после неё остаётся еда на второй приём пищи.
+    # зато после неё остаётся запас еды на два дня (порциями — mealServings).
     {
         "id": "food-cheap", "label": "Своя еда, готовим дома", "icon": "ui/spend-products",
         "cost": 120, "minutes": 60, "location": "dorm",
@@ -113,22 +102,38 @@ data["spends"] = [
         "id": "food-fast", "label": "Фастфуд", "icon": "ui/spend-schnitzel",
         "cost": 250, "minutes": 20, "location": "arbat",
         "moodGain": 5, "energyCost": 0, "energyGain": 12,
-        "hungerGain": 30, "cleanlinessGain": 0, "repGain": 0,
-        "category": "обязательные", "preparesMeal": False, "requires": None,
+        "hungerGain": 45, "cleanlinessGain": 0, "repGain": 0,
+        "category": "обязательные", "preparesMeal": False, "requires": "clean",
     },
     {
         "id": "food-luxe", "label": "Хороший обед", "icon": "ui/spend-cafe",
         "cost": 500, "minutes": 20, "location": "arbat",
         "moodGain": 10, "energyCost": 0, "energyGain": 25,
-        "hungerGain": 50, "cleanlinessGain": 0, "repGain": 0,
-        "category": "обязательные", "preparesMeal": False, "requires": None,
+        "hungerGain": 55, "cleanlinessGain": 0, "repGain": 0,
+        "category": "обязательные", "preparesMeal": False, "requires": "clean",
     },
     {
         "id": "food-leftovers", "label": "Еда, приготовленная утром", "icon": "ui/spend-breakfast",
         "cost": 0, "minutes": 20, "location": "dorm",
         "moodGain": 0, "energyCost": 0, "energyGain": 6,
-        "hungerGain": 25, "cleanlinessGain": 0, "repGain": 0,
-        "category": "обязательные", "preparesMeal": False, "requires": "preparedMeal",
+        "hungerGain": 35, "cleanlinessGain": 0, "repGain": 0,
+        "category": "обязательные", "preparesMeal": False, "requires": "mealStock",
+    },
+    # Быстрые завтраки между «своей едой» и фастфудом: сытость меньше,
+    # зато времени уходит меньше и настроение не падает.
+    {
+        "id": "food-coffee", "label": "Кофе и булочка", "icon": "ui/spend-coffee",
+        "cost": 150, "minutes": 15, "location": "arbat",
+        "moodGain": 4, "energyCost": 0, "energyGain": 5,
+        "hungerGain": 20, "cleanlinessGain": 0, "repGain": 0,
+        "category": "обязательные", "preparesMeal": False, "requires": "clean",
+    },
+    {
+        "id": "food-syrniki", "label": "Сырники со сметаной", "icon": "ui/spend-breakfast",
+        "cost": 200, "minutes": 25, "location": "arbat",
+        "moodGain": 6, "energyCost": 0, "energyGain": 8,
+        "hungerGain": 30, "cleanlinessGain": 0, "repGain": 0,
+        "category": "обязательные", "preparesMeal": False, "requires": "clean",
     },
     # Обязательные платежи.
     {
@@ -140,7 +145,7 @@ data["spends"] = [
     },
     {
         "id": "internet", "label": "Интернет", "icon": "ui/item-laptop",
-        "cost": 500, "minutes": 10, "location": "dorm",
+        "cost": 1500, "minutes": 10, "location": "dorm",
         "moodGain": 0, "energyCost": 0, "energyGain": 0,
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
         "category": "обязательные", "preparesMeal": False, "requires": None, "period": True,
@@ -165,7 +170,7 @@ data["spends"] = [
         "cost": 800, "minutes": 150, "location": "city",
         "moodGain": 10, "energyCost": 12, "energyGain": 0,
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
-        "category": "развлечения", "preparesMeal": False, "requires": "mood",
+        "category": "развлечения", "preparesMeal": False, "requires": "mood+clean",
     },
     {
         "id": "park", "label": "Прогулка в парке", "icon": "ui/spend-park",
@@ -181,16 +186,23 @@ data["spends"] = [
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
         "category": "развлечения", "preparesMeal": False, "requires": "internet",
     },
-    # Уход за Соломоном и за собой.
+    {
+        "id": "computer", "label": "Играть в компьютер", "icon": "ui/item-laptop",
+        "cost": 0, "minutes": 90, "location": "dorm",
+        "moodGain": 7, "energyCost": 6, "energyGain": 0,
+        "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
+        "category": "развлечения", "preparesMeal": False, "requires": "internet",
+    },
+    # Уход за Соломоном.
     {
         "id": "pet", "label": "Погладить Соломона", "icon": "ui/heart-2",
         "cost": 0, "minutes": 15, "location": "city",
-        "moodGain": 5, "energyCost": 2, "energyGain": 0,
+        "moodGain": 5, "energyCost": 0, "energyGain": 12,
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
         "category": "быт", "preparesMeal": False, "requires": None,
     },
     {
-        "id": "wash", "label": "Вымыть Соломона", "icon": "ui/spend-shower",
+        "id": "wash", "label": "Помыться", "icon": "ui/spend-shower",
         "cost": 200, "minutes": 40, "location": "bathroom",
         "moodGain": 2, "energyCost": 10, "energyGain": 0,
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 0,
@@ -203,33 +215,25 @@ data["spends"] = [
         "hungerGain": 0, "cleanlinessGain": 0, "repGain": 1,
         "category": "быт", "preparesMeal": False, "requires": None,
     },
-    {
-        "id": "shower", "label": "Помыться", "icon": "ui/hygiene",
-        "cost": 0, "minutes": 30, "location": "bathroom",
-        "moodGain": 2, "energyCost": 8, "energyGain": 0,
-        "hungerGain": 0, "cleanlinessGain": 40, "repGain": 0,
-        "category": "быт", "preparesMeal": False, "requires": None,
-    },
 ]
 
 data["transport"] = [
     {
         "id": "walk", "label": "Пешком", "icon": "ui/event-blizzard-walk",
-        "cost": 0, "minutes": 40, "energyCost": 10, "dirt": 5, "moodGain": -1,
+        "cost": 0, "minutes": 40, "energyCost": 10, "hungerCost": 5, "dirt": 8, "moodGain": -1,
     },
     {
         "id": "bus", "label": "Автобус", "icon": "ui/event-blizzard-bus",
-        "cost": 35, "minutes": 35, "energyCost": 3, "dirt": 0, "moodGain": 0,
+        "cost": 35, "minutes": 35, "energyCost": 3, "hungerCost": 5, "dirt": 3, "moodGain": 0,
     },
     {
         "id": "taxi", "label": "Такси", "icon": "ui/event-blizzard-taxi",
-        "cost": 150, "minutes": 15, "energyCost": 3, "dirt": 0, "moodGain": 1,
+        "cost": 150, "minutes": 15, "energyCost": 3, "hungerCost": 5, "dirt": 2, "moodGain": 1,
     },
 ]
 
 # ----------------------------------------------------------------- правила ---
 rules = collections.OrderedDict([
-    ("weeklyShiftCap", 10),
     ("burnoutMood", 25), ("burnoutRate", 0.7),
     ("boringDaily", 2),
     ("petNeglectMood", 4),      # Соломон скучает без ухода — минус к настроению
@@ -239,7 +243,12 @@ rules = collections.OrderedDict([
     ("sleepPerDay", 1),
     ("petPerDay", 3),
     ("washPerDay", 1),
+    ("laundryPerDay", 1),       # стирка — раз в день, иначе деньги утекают внику
     ("mealsPerDay", 2),         # больше двух приёмов пищи Соломон не съест
+    ("mealServings", 3),        # сколько порций в приготовленной еде
+    ("mealKeepsDays", 2),       # сколько дней еда хранится (сегодня и ещё один)
+    ("funPerDay", 1),           # сколько развлечений нужно за день
+    ("noFunMoodPenalty", 12),   # настроение без развлечений за день
     ("repCap", 5),
     ("cleanAt", 67), ("dirtyAt", 33),
     ("cleanlinessDecay", 15),
@@ -249,16 +258,24 @@ rules = collections.OrderedDict([
     ("note", "Константы модели. Должны совпадать с scripts/balance_sim.py."),
     # --- пары и уроки ---
     ("classesEnergyCost", 25),
-    ("classesMoodCost", 1),
+    ("classesMoodCost", 3),
+    ("classesHungerCost", 15),
+    ("classesCleanlinessCost", 5),
     ("classesMinutes", 360),
     ("lessonStreakForTutor", 3),
     ("lessonMoodGain", 3),
     ("missedLessonMood", 8),
     ("lessonProblemsAfter", 3),
     ("moodForFun", 40),
-    # --- проигрыш ---
+    # --- ноль на шкале ---
+    # Сытость ниже neglectHunger — предупреждение («Соломон голоден»).
     ("neglectHunger", 25),
-    ("neglectDaysToLose", 2),
+    # Энергия или сытость на нуле два дня подряд — счёт на лечение.
+    ("collapseDaysToBill", 2),
+    ("treatmentCost", 1500),
+    # Обморок на морозе: грязный Соломон в метель идёт пешком и мёрзнет.
+    ("sickMoodCost", 5),
+    ("sickEnergyCost", 10),
     # --- качество сна ---
     ("cleanFactorGood", 1.0),
     ("cleanFactorWeak", 0.7),
@@ -321,7 +338,7 @@ data["events"] = [
 
 # --------------------------------------------------------------- прочее ---
 data["items"] = []
-data["entertainmentSpends"] = ["kino", "park", "tiktok"]
+data["entertainmentSpends"] = ["kino", "park", "tiktok", "computer"]
 data["spendCategories"] = collections.OrderedDict([
     ("obligatory", "обязательные"),
     ("household", "быт"),
@@ -332,17 +349,21 @@ data["spendCategories"] = collections.OrderedDict([
     ("savings", "накопления"),
 ])
 
-# Вкладки: три вместо четырёх. «Отдых» и «Соломон» объединены.
+# Вкладки: две. Модуль «Заработать» убран по решению заказчика.
 data["tabLocations"] = collections.OrderedDict([
-    ("work", "city"),
     ("spend", "arbat"),
     ("solomon", "bathroom"),
+    # Кошелёк: деньги лежат в общежитии, там же мы и откладываем подушку.
+    ("wallet", "dorm"),
 ])
+
+# Мы — Соломон: игрок сам белка-студент, а не сосед, у которого живёт белка.
+data["meta"]["subtitle"] = "Соломон — студент ПГУ им. Шолом-Алейхема в Биробиджане"
 
 with open(PATH, "w", encoding="utf-8", newline="\n") as fh:
     json.dump(data, fh, ensure_ascii=False, indent=2)
     fh.write("\n")
 
 print("записано:", PATH)
-print("работ:", len(data["jobs"]), "трат:", len(data["spends"]),
+print("трат:", len(data["spends"]),
       "транспорт:", len(data["transport"]), "события:", len(data["events"]))

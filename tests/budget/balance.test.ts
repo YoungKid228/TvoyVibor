@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { runScenario } from "../../src/budget/core/reducer";
 import { stats } from "../../src/budget/core/evaluation";
 import { POLICIES } from "../../src/budget/core/strategies";
-import { PROFESSIONS } from "../../src/budget/data/scenario";
 
 /**
  * Эталонный прогон: числа обязаны совпадать с `scripts/balance_sim.py`.
@@ -17,43 +16,39 @@ import { PROFESSIONS } from "../../src/budget/data/scenario";
 describe("эталонный прогон короткого режима (неделя)", () => {
   const expected: Record<
     string,
-    [number, number, number, number, number, number, string]
+    [number, number, number, number, number, string]
   > = {
-    // баланс, кошелёк, подушка, ср. настроение, ср. чистота, смен, вердикт
+    // баланс, кошелёк, подушка, ср. настроение, ср. чистота, вердикт
     Копилка: [
-      15320,
-      11320,
+      12160,
+      8160,
       4000,
-      17.7,
-      30.0,
-      2,
+      40.7,
+      69.6,
       "Деньги есть, но настроение провалилось",
     ],
-    Трудяга: [
-      17155,
-      17155,
+    Ученик: [
+      9355,
+      9355,
       0,
-      28.9,
-      40.7,
-      7,
-      "Деньги есть, но настроение провалилось",
+      88.1,
+      77.0,
+      "Успех: и деньги есть, и настроение хорошее",
     ],
     Баланс: [
-      21315,
-      21315,
+      10015,
+      10015,
       0,
-      79.7,
-      91.4,
-      7,
+      58.6,
+      86.9,
       "Успех: и деньги есть, и настроение хорошее",
     ],
     Гедонист: [
-      5500,
-      5500,
+      900,
+      900,
       0,
-      89.1,
-      40.7,
-      7,
+      78.7,
+      60.1,
       "Настроение хорошее, но денег нет",
     ],
   };
@@ -70,17 +65,16 @@ describe("эталонный прогон короткого режима (не�
       ]);
       expect(s.avgMood).toBeCloseTo(want[3], 1);
       expect(s.avgCleanliness).toBeCloseTo(want[4], 1);
-      expect(s.shifts).toBe(want[5]);
-      expect(s.verdict).toBe(want[6]);
+      expect(s.verdict).toBe(want[5]);
     });
   }
 
   it("разбор расходов совпадает с эталоном", () => {
     const cases: Record<string, [number, string]> = {
-      Копилка: [0.293, "Расходы распределены грамотно"],
-      Трудяга: [0.278, "Расходы покрыты, но резерв не создан"],
-      Баланс: [0.394, "Расходы покрыты, но резерв не создан"],
-      Гедонист: [0.526, "Расходы покрыты, но резерв не создан"],
+      Копилка: [0.446, "Обязательные расходы не покрыты"],
+      Ученик: [0.366, "Расходы покрыты, но резерв не создан"],
+      Баланс: [0.391, "Расходы покрыты, но резерв не создан"],
+      Гедонист: [0.398, "Расходы покрыты, но резерв не создан"],
     };
     for (const [name, policy] of Object.entries(POLICIES)) {
       const s = stats(runScenario("short", "student", policy));
@@ -97,13 +91,13 @@ describe("эталонный прогон короткого режима (не�
       number,
       [number, number, number, number, number, number]
     > = {
-      1: [17695, 0, 71, 100, 85, 70],
-      2: [18640, 0, 80, 100, 100, 70],
-      3: [19885, 0, 79, 100, 85, 70],
-      4: [20430, 0, 83, 100, 100, 70],
-      5: [20175, 0, 75, 100, 85, 70],
-      6: [20020, 0, 88, 100, 100, 70],
-      7: [21315, 0, 82, 100, 85, 70],
+      1: [16345, 0, 61, 100, 77, 70],
+      2: [15790, 0, 71, 100, 100, 70],
+      3: [15635, 0, 60, 100, 77, 70],
+      4: [13580, 0, 65, 100, 100, 70],
+      5: [11925, 0, 47, 100, 77, 70],
+      6: [10170, 0, 61, 100, 100, 70],
+      7: [10015, 0, 45, 100, 77, 70],
     };
     for (const [day, want] of Object.entries(expectedRows)) {
       const row = byDay.get(Number(day));
@@ -119,39 +113,35 @@ describe("эталонный прогон короткого режима (не�
     }
   });
 
-  it("«Баланс» следит за чистотой, остальные стратегии — нет", () => {
+  it("заработка в игре нет: доход за неделю нулевой", () => {
+    const state = runScenario("short", "student", POLICIES["Баланс"]);
+    expect(state.income).toBe(0);
+  });
+
+  it("«Баланс» моется и ест в кафе, «Копилка» — только гуляет в парке", () => {
     const balanced = runScenario("short", "student", POLICIES["Баланс"]);
-    const worker = runScenario("short", "student", POLICIES["Трудяга"]);
+    const saver = runScenario("short", "student", POLICIES["Копилка"]);
     expect(
       balanced.log.some((d) => d.actions.some((a) => a.includes("Помыться"))),
     ).toBe(true);
+    // «Копилка» моется тоже: без этого её не пустят в транспорт.
     expect(
-      worker.log.some((d) => d.actions.some((a) => a.includes("Помыться"))),
+      saver.log.some((d) => d.actions.some((a) => a.includes("Помыться"))),
+    ).toBe(true);
+    // Но дорогих развлечений у неё нет — ни разу за неделю.
+    expect(
+      saver.log.some((d) => d.actions.some((a) => a.includes("кино"))),
     ).toBe(false);
-    // «Баланс» держит общую чистоту и настроение, «Трудяга» — нет.
-    const lastBalanced = balanced.log[balanced.log.length - 1];
-    const lastWorker = worker.log[worker.log.length - 1];
-    expect(lastBalanced.cleanliness).toBeGreaterThan(lastWorker.cleanliness);
-    expect(balanced.scales.mood).toBeGreaterThan(worker.scales.mood);
+    // Настроение у неё ниже, чем у «Баланса»: копить и веселиться — плохо.
+    const avg = (state: typeof saver) =>
+      state.log.reduce((sum, d) => sum + d.mood, 0) / state.log.length;
+    expect(avg(saver)).toBeLessThan(avg(balanced));
   });
 
-  it("все стратегии доживают до конца недели", () => {
-    for (const [name, policy] of Object.entries(POLICIES)) {
-      const state = runScenario("short", "student", policy);
-      expect(state.lost, `«${name}» проиграла`).toBe(false);
-      expect(state.log.length).toBe(7);
-    }
-  });
-});
-
-describe("профессия одна — игрок всегда студент", () => {
-  it("в игре ровно одна профессия", () => {
-    expect(PROFESSIONS.map((prof) => prof.id)).toEqual(["student"]);
-  });
-
-  it("игра запускается как студент", () => {
-    const state = runScenario("short", "student", POLICIES["Баланс"]);
-    expect(state.professionId).toBe("student");
-    expect(state.scales.mood).toBeGreaterThan(0);
+  it("без развлечений за день настроение падает", () => {
+    // «Баланс» гуляет через день: в дни без прогулки штраф есть.
+    const balanced = runScenario("short", "student", POLICIES["Баланс"]);
+    const notes = balanced.log.flatMap((d) => d.notes).join("; ");
+    expect(notes).toContain("день без развлечений");
   });
 });

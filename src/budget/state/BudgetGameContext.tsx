@@ -13,19 +13,20 @@ import {
   endDay,
   normalizeState,
   resolveEvent,
+  spendBlockReason,
   startDay,
+  transportBlockReason,
   buy,
   chooseTransport,
   rest,
   saveToSavings,
+  skipPayments,
   takeFromSavings,
-  work,
 } from "../core/reducer";
 import { SCENARIOS } from "../data/scenario";
 import { clearGame, loadGame, saveGame } from "../storage/saveRepository";
 import type {
   GameState,
-  JobId,
   ProfessionId,
   ScenarioKey,
   SpendId,
@@ -42,6 +43,17 @@ import type {
 
 type Screen = "menu" | "rules" | "briefing" | "day" | "result";
 
+/**
+ * Результат действия.
+ *
+ * `error` — причина отказа: её показывает всплывающее уведомление.
+ * `message` — что получилось: тоже всплывает, но зелёным.
+ */
+type ActionResult = {
+  message?: string | null;
+  error?: string | null;
+};
+
 type GameContextValue = {
   state: GameState;
   screen: Screen;
@@ -55,12 +67,15 @@ type GameContextValue = {
   resetGame: () => void;
   toMenu: () => void;
   showRules: () => void;
-  doWork: (jobId: JobId) => void;
+  /** Вернуться к игровому дню из экрана правил. */
+  backToDay: () => void;
   doBuy: (spendId: SpendId) => void;
   doTransport: (transportId: TransportId) => void;
   doRest: () => void;
   doSave: (amount: number) => void;
   doWithdraw: (amount: number) => void;
+  /** Решение «ничего не платить». */
+  doSkipPayments: () => void;
   chooseEvent: (optionId: string) => void;
   finishDay: () => void;
 };
@@ -74,6 +89,7 @@ type Action =
   | { type: "reset" }
   | { type: "menu" }
   | { type: "rules" }
+  | { type: "back" }
   | { type: "apply"; next: GameState; message: string | null; error: string | null }
   | { type: "load"; state: GameState };
 
@@ -127,6 +143,11 @@ function reducer(store: Store, action: Action): Store {
       return { ...store, screen: "menu" };
     case "rules":
       return { ...store, screen: "rules" };
+    case "back": {
+      // Назад из правил: если день уже идёт — возвращаемся в него, иначе
+      // (правила открыли из меню) — в меню.
+      return { ...store, screen: store.state.dayStarted ? "day" : "menu" };
+    }
     case "apply":
       return {
         state: action.next,
@@ -176,25 +197,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   /** Применить действие к копии состояния. */
   const apply = useCallback(
-    (mutate: (draft: GameState) => string | null) => {
+    (mutate: (draft: GameState) => ActionResult) => {
       const draft: GameState = {
         ...store.state,
         scales: { ...store.state.scales },
         items: [...store.state.items],
-        weekShifts: { ...store.state.weekShifts },
-        weekJobs: { ...store.state.weekJobs },
         spentByCategory: { ...store.state.spentByCategory },
         log: [...store.state.log],
         dayActions: [...store.state.dayActions],
         dayNotes: [...store.state.dayNotes],
         itemDays: { ...store.state.itemDays },
+        mealStock: { ...store.state.mealStock },
       };
       const result = mutate(draft);
       dispatch({
         type: "apply",
         next: draft,
-        message: result,
-        error: null,
+        message: result.message ?? null,
+        error: result.error ?? null,
       });
     },
     [store.state],
@@ -216,36 +236,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       toMenu: () => dispatch({ type: "menu" }),
       showRules: () => dispatch({ type: "rules" }),
-      doWork: (jobId) => apply((draft) => work(draft, jobId)),
-      doBuy: (spendId) => apply((draft) => buy(draft, spendId)),
+      backToDay: () => dispatch({ type: "back" }),
+      // Покупка: причина отказа (в том числе «уже ночь, пора спать»)
+      // идёт в уведомление, а не теряется внизу страницы.
+      doBuy: (spendId) =>
+        apply((draft) => {
+          const reason = spendBlockReason(draft, spendId);
+          if (reason) return { error: reason };
+          return { message: buy(draft, spendId) };
+        }),
       doTransport: (transportId) =>
-        apply((draft) => chooseTransport(draft, transportId)),
+        apply((draft) => {
+          const reason = transportBlockReason(draft, transportId);
+          if (reason) return { error: reason };
+          return { message: chooseTransport(draft, transportId) };
+        }),
       // Сон закрывает день: восстанавливает силы и переводит игру на
       // следующий день. Без сна день не заканчивается.
       doRest: () =>
         apply((draft) => {
           const message = rest(draft);
-          if (draft.phase !== "done") return message;
+          if (draft.phase !== "done") return { message };
           endDay(draft, draft.dayActions);
-          if (draft.lost) return "Игра проиграна.";
-          if (draft.finished) return "Игра закончилась — подводим итоги.";
+          if (draft.lost) return { message: "Игра проиграна." };
+          if (draft.finished) return { message: "Игра закончилась — подводим итоги." };
           startDay(draft);
-          return "Сон прошёл, наступило утро.";
+          return { message: "Сон прошёл, наступило утро." };
         }),
       doSave: (amount) =>
         apply((draft) => {
-          if (amount === 0) return null;
-          return saveToSavings(draft, amount);
+          if (amount === 0) return {};
+          return { message: saveToSavings(draft, amount) };
         }),
-      doWithdraw: (amount) => apply((draft) => takeFromSavings(draft, amount)),
+      doWithdraw: (amount) =>
+        apply((draft) => ({ message: takeFromSavings(draft, amount) })),
+      doSkipPayments: () =>
+        apply((draft) => ({ message: skipPayments(draft) })),
       chooseEvent: (optionId) =>
-        apply((draft) => resolveEvent(draft, optionId)),
+        apply((draft) => ({ message: resolveEvent(draft, optionId) })),
       finishDay: () =>
         apply((draft) => {
           endDay(draft, draft.dayActions);
-          if (draft.finished) return "Неделя закончилась — подводим итоги.";
+          if (draft.finished) {
+            return { message: "Неделя закончилась — подводим итоги." };
+          }
           startDay(draft);
-          return null;
+          return {};
         }),
     }),
     [apply, store],

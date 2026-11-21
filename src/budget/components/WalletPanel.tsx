@@ -4,6 +4,9 @@ import PixelButton from "../../components/PixelButton";
  * Панель кошелька: свободные деньги, подушка безопасности и общий баланс.
  *
  * Итоговый баланс = кошелёк + подушка — именно он попадает в шкалу оценки.
+ *
+ * Панель живёт в шторке на телефоне, поэтому три суммы стоят в одну строку:
+ * отдельными блоками они не помещались и съедали место карточек действий.
  */
 
 type Props = {
@@ -32,47 +35,55 @@ export default function WalletPanel({
   return (
     <section
       aria-label="Кошелёк"
-      className="rounded-xl border border-stone-300 bg-white p-3 shadow-[3px_3px_0_#d6d3d1]"
+      className="rounded-xl border border-stone-300 bg-white p-2.5 shadow-[3px_3px_0_#d6d3d1]"
     >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div>
-          <div className="text-xs text-stone-500">Кошелёк</div>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] text-stone-500">Кошелёк</div>
           <div
-            className={`font-mono text-xl font-bold tabular-nums ${inDebt ? "text-red-700" : "text-stone-900"}`}
+            className={`font-mono text-base font-bold tabular-nums ${inDebt ? "text-red-700" : "text-stone-900"}`}
           >
             {cash.toLocaleString("ru-RU")} ₽
           </div>
           {inDebt && (
-            <div className="text-xs font-medium text-red-700">
-              Долг {Math.abs(cash).toLocaleString("ru-RU")} ₽ — траты
-              продолжают уходить в минус
+            <div className="text-[10px] font-medium text-red-700">
+              Долг {Math.abs(cash).toLocaleString("ru-RU")} ₽
             </div>
           )}
         </div>
-        <div>
-          <div className="text-xs text-stone-500">Подушка</div>
-          <div className="font-mono text-xl font-bold tabular-nums text-stone-900">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] text-stone-500">Подушка</div>
+          <div className="font-mono text-base font-bold tabular-nums text-stone-900">
             {savings.toLocaleString("ru-RU")} ₽
           </div>
           {savings >= 4000 && (
-            <div className="text-xs text-emerald-700">+1 настроения в день</div>
+            <div className="text-[10px] text-emerald-700">
+              +1 настроения в день
+            </div>
           )}
         </div>
-        <div>
-          <div className="text-xs text-stone-500">Итоговый баланс</div>
-          <div className="font-mono text-xl font-bold tabular-nums text-orange-700">
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] text-stone-500">Итог</div>
+          <div className="font-mono text-base font-bold tabular-nums text-orange-700">
             {balance.toLocaleString("ru-RU")} ₽
           </div>
-        </div>
-        <div className="ml-auto text-xs text-stone-500">
-          <div>доход: {income.toLocaleString("ru-RU")} ₽</div>
-          <div>расход: {expenses.toLocaleString("ru-RU")} ₽</div>
+          <div className="text-[10px] text-stone-500">
+            расход: {expenses.toLocaleString("ru-RU")} ₽
+          </div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-4 border-t border-stone-200 pt-3">
+      {/* Заработка в игре нет, поэтому доход всегда нулевой и показывать
+          его рядом с суммами незачем. */}
+      {income !== 0 && (
+        <div className="text-[11px] text-stone-500">
+          доход: {income.toLocaleString("ru-RU")} ₽
+        </div>
+      )}
+
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2 border-t border-stone-200 pt-2">
         <div>
-          <div className="mb-1 text-xs font-medium text-stone-600">
+          <div className="mb-1 text-[11px] font-medium text-stone-600">
             Отложить в подушку
           </div>
           <div className="flex flex-wrap gap-1">
@@ -90,7 +101,7 @@ export default function WalletPanel({
           </div>
         </div>
         <div>
-          <div className="mb-1 text-xs font-medium text-stone-600">
+          <div className="mb-1 text-[11px] font-medium text-stone-600">
             Снять из подушки
           </div>
           <div className="flex flex-wrap gap-1">

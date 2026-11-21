@@ -63,7 +63,7 @@ test("игра: меню, брифинг, неделя и итоговый эк�
   await page.getByRole("button", { name: /Начать/i }).click();
 
   // Брифинг: знакомство с белкой и объяснение обязательных расходов.
-  await expect(page.getByText(/Знакомьтесь: это Соломон/)).toBeVisible();
+  await expect(page.getByText(/Вы — Соломон/)).toBeVisible();
   await expect(page.getByText("Обязательные", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Понятно, начинаем/i }).click();
 
@@ -105,7 +105,7 @@ test("игра: прогресс сохраняется после переза�
 
   // Делаем действие, чтобы состояние изменилось.
   await morning(page);
-  await page.getByRole("button", { name: /Курьерская доставка/ }).click();
+  await page.getByRole("button", { name: /Прогулка в парке/ }).click();
   await sleepAndNextDay(page);
   await expect(page.getByText(/День 2 из 7/)).toBeVisible();
   // Ждём, пока автосохранение допишет новый день: без этого перезагрузка
@@ -125,6 +125,53 @@ test("игра: прогресс сохраняется после переза�
   await expect(resume).toBeVisible();
   await resume.click();
   await expect(page.getByText(/День 2 из 7/)).toBeVisible();
+});
+
+/**
+ * Ноль на шкале виден в интерфейсе, а не только в журнале дня.
+ *
+ * Проверяем две вещи, на которые жаловался заказчик:
+ *   1. грязного Соломона не пускают в автобус — карточка недоступна и
+ *      показывает причину;
+ *   2. в свободное время есть три вкладки, как утром, и во вкладке
+ *      «Платежи» — кнопка «ничего не платить».
+ */
+test("игра: грязного Соломона не пускают в автобус, а вкладки и отказ от платежей на месте", async ({ page }) => {
+  await startGame(page);
+  await morning(page);
+
+  // Три вкладки свободного времени — как утром.
+  await expect(page.getByRole("button", { name: /^Развлечься$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Кушать$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Платежи$/ })).toBeVisible();
+
+  // Во вкладке «Платежи» — вариант «ничего не платить».
+  await page.getByRole("button", { name: /^Платежи$/ }).click();
+  const skip = page.getByRole("button", { name: /Ничего не платить/ });
+  await expect(skip).toBeVisible();
+  await skip.click();
+  // Решение остаётся в журнале дня — открываем журнал и проверяем.
+  await page.getByText("Что было в этот день").click();
+  await expect(page.getByText(/сегодня ничего не платим/)).toBeVisible();
+
+  // Доводим Соломона до сильной грязи: чистота падает на 15 в день, плюс
+  // 5 за пары и 3 за автобус. К третьему дню в свободное время Соломон
+  // уже «сильно грязный» (порог 33).
+  for (let day = 0; day < 2; day += 1) {
+    await page.getByRole("button", { name: /^Развлечься$/ }).click();
+    await page.getByRole("button", { name: /Прогулка в парке/ }).click();
+    await sleepAndNextDay(page);
+    await morning(page);
+  }
+
+  // В свободное время третьего дня Соломон сильно грязный: в кафе его не
+  // пускают — карточка недоступна, и видно почему.
+  await page.getByRole("button", { name: /^Кушать$/ }).click();
+  const fastFood = page.getByRole("button", { name: /Фастфуд/ });
+  await expect(fastFood).toBeDisabled();
+  await expect(page.getByText(/Соломон грязный/).first()).toBeVisible();
+  // Своя еда дома остаётся доступна: грязному ходить в кафе не надо.
+  await expect(page.getByRole("button", { name: /Своя еда/ })).toBeEnabled();
 });
 
 /**

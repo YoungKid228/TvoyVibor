@@ -198,7 +198,7 @@ def check_fragment(label, column, cell, want, table) -> None:
 
 def check_short_table(doc: str) -> None:
     """Раздел 11: короткий режим — итоги стратегий и разбор расходов."""
-    table = table_by_header(doc, "баланс", "кошелёк", "подушка", "смен",
+    table = table_by_header(doc, "баланс", "кошелёк", "подушка",
                             after="Неделя (7 дней)")
     for name, policy in b.POLICIES.items():
         s = b.stats(b.Game(b.SHORT, 11).run(policy))
@@ -208,8 +208,7 @@ def check_short_table(doc: str) -> None:
         check_cell(name, "подушка", num(row[3]), s["подушка"])
         check_cell(name, "ср. настроение", num(row[4]), s["среднее_настроение"], 0.05)
         check_cell(name, "ср. чистота", num(row[5]), s["средняя_чистота"], 0.05)
-        check_cell(name, "смен", num(row[6]), s["смен"])
-        check_fragment(name, "вердикт", row[7], s["итог"], VERDICT_FRAGMENTS)
+        check_fragment(name, "вердикт", row[6], s["итог"], VERDICT_FRAGMENTS)
 
     audit = table_by_header(doc, "доля необязательных", "вердикт проверки",
                             after="Неделя (7 дней)")
@@ -244,18 +243,9 @@ def check_week_table(doc: str) -> None:
 # ---------------------------------------------------------------------------
 
 def check_json(data: dict) -> None:
-    for job in data["jobs"]:
-        if job["id"] not in b.JOBS:
-            fail.append(f"в JSON есть заработок {job['id']}, которого нет в модели")
-            continue
-        # b.JOBS: (база, энергия, настроение, минуты, условие, лимит)
-        pay, energy, mood, minutes, req, limit = b.JOBS[job["id"]]
-        got = (job["pay"], job["energyCost"], job["moodCost"], job["minutes"], job["limit"])
-        want = (pay, energy, mood, minutes, limit)
-        if got != want:
-            fail.append(f"заработок {job['id']}: JSON {got} != модель {want}")
-        if job["requires"] != req:
-            fail.append(f"заработок {job['id']}: условие доступа JSON {job['requires']} != модель {req}")
+    # Модуля «Заработать» в игре нет: в JSON не должно быть раздела работ.
+    if "jobs" in data:
+        fail.append("в JSON остался раздел работ — модуль «Заработать» убран из игры")
 
     for spend in data["spends"]:
         if spend["id"] not in b.SPEND:
@@ -286,12 +276,11 @@ def check_json(data: dict) -> None:
             fail.append(f"в JSON нет профессии {prof_id}")
             continue
         json_prof = json_profs[prof_id]
-        want = (model_prof["rep"], model_prof["shifts"], model_prof["mood"], model_prof["pay"])
-        got = (json_prof["repBonus"], json_prof["shiftBonus"], json_prof["moodBonus"], json_prof["payBonus"])
+        want = (model_prof["rep"], model_prof["mood"])
+        got = (json_prof["repBonus"], json_prof["moodBonus"])
         if got != want:
             fail.append(
-                f"профессия {prof_id}: JSON (rep, shifts, mood, pay) {got} "
-                f"!= модель {want}"
+                f"профессия {prof_id}: JSON (rep, mood) {got} != модель {want}"
             )
     for prof_id in json_profs:
         if prof_id not in b.PROFESSIONS:
@@ -309,7 +298,6 @@ def check_json(data: dict) -> None:
                            ("giftDay", scenario.gift_day),
                            ("snowDays", list(scenario.snow_days)),
                            ("days", scenario.days),
-                           ("weeklyShiftCap", scenario.weekly_shift_cap),
                            ("hungerDecay", scenario.hunger_decay),
                            ("cleanlinessDecay", scenario.cleanliness_decay)):
             if sc[field] != val:
@@ -332,15 +320,18 @@ def check_json(data: dict) -> None:
     # Правила: JSON ↔ эталон. Лимиты сна и поглаживаний — это правила игры,
     # и они тоже должны совпадать в обоих источниках.
     rules = data["rules"]
-    for field, val in (("weeklyShiftCap", b.SHORT.weekly_shift_cap),
-                       ("burnoutMood", b.BURNOUT_MOOD),
-                       ("boringDaily", b.BORING),
+    for field, val in (("boringDaily", b.BORING),
                        ("sleepMood", b.SLEEP_MOOD),
                        ("sleepEnergy", b.SLEEP_ENERGY),
                        ("sleepHunger", b.SLEEP_HUNGER),
                        ("sleepPerDay", b.SLEEP_PER_DAY),
                        ("petPerDay", b.PET_PER_DAY),
                        ("washPerDay", b.WASH_PER_DAY),
+                       ("laundryPerDay", b.LAUNDRY_PER_DAY),
+                       ("mealServings", b.MEAL_SERVINGS),
+                       ("mealKeepsDays", b.MEAL_KEEPS_DAYS),
+                       ("funPerDay", b.FUN_PER_DAY),
+                       ("noFunMoodPenalty", b.NO_FUN_MOOD_PENALTY),
                        ("cleanAt", b.CLEAN_AT),
                        ("dirtyAt", b.DIRTY_AT),
                        ("cleanlinessDecay", b.SHORT.cleanliness_decay),
@@ -351,14 +342,17 @@ def check_json(data: dict) -> None:
                        ("hygienePenalty", b.HYGIENE_PENALTY),
                        ("classesEnergyCost", b.CLASSES_ENERGY_COST),
                        ("classesMoodCost", b.CLASSES_MOOD_COST),
+                       ("classesHungerCost", b.CLASSES_HUNGER_COST),
+                       ("classesCleanlinessCost", b.CLASSES_CLEANLINESS_COST),
                        ("classesMinutes", b.CLASSES_MINUTES),
-                       ("lessonStreakForTutor", b.LESSON_STREAK_FOR_TUTOR),
-                       ("lessonMoodGain", b.LESSON_MOOD_GAIN),
                        ("missedLessonMood", b.MISSED_LESSON_MOOD),
                        ("lessonProblemsAfter", b.LESSON_PROBLEMS_AFTER),
                        ("moodForFun", b.MOOD_FOR_FUN),
                        ("neglectHunger", b.NEGLECT_HUNGER),
-                       ("neglectDaysToLose", b.NEGLECT_DAYS_TO_LOSE),
+                       ("collapseDaysToBill", b.COLLAPSE_DAYS_TO_BILL),
+                       ("treatmentCost", b.TREATMENT_COST),
+                       ("sickMoodCost", b.SICK_MOOD_COST),
+                       ("sickEnergyCost", b.SICK_ENERGY_COST),
                        ("cleanFactorGood", b.CLEAN_FACTOR_GOOD),
                        ("cleanFactorWeak", b.CLEAN_FACTOR_WEAK),
                        ("cleanFactorBad", b.CLEAN_FACTOR_BAD),
@@ -367,8 +361,6 @@ def check_json(data: dict) -> None:
         if rules[field] != val:
             fail.append(f"правило {field}: JSON {rules[field]} != модель {val}")
 
-    if len(data["jobs"]) != len(b.JOBS):
-        fail.append(f"количество заработков: JSON {len(data['jobs'])} != модели {len(b.JOBS)}")
     if len(data["spends"]) != len(b.SPEND):
         fail.append(f"количество трат: JSON {len(data['spends'])} != модели {len(b.SPEND)}")
     if len(data["professions"]) != len(b.PROFESSIONS):
@@ -382,14 +374,12 @@ def check_json(data: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def check_content(doc: str) -> None:
-    # Три заработка и три уровня еды — как в игре.
-    job_labels = {"courier": "Курьерская доставка", "tutor": "Репетиторство",
-                  "lab": "Лаборант в университете"}
-    for job, label in job_labels.items():
-        if job not in b.JOBS:
-            fail.append(f"нет заработка {job}")
-        elif label not in doc:
-            fail.append(f"заработок {job} ({label}) не описан в документе")
+    # Модуля «Заработать» в игре нет — и в документе упоминаний о сменах
+    # быть не должно: правила и подсказки тоже убраны.
+    for word in ("Курьерская доставка", "Репетиторство", "Лаборант",
+                 "недельный лимит смен"):
+        if word in doc:
+            fail.append(f"в документе осталось упоминание заработка: {word}")
 
     food_labels = {"food-cheap": "Своя еда", "food-fast": "Фастфуд",
                    "food-luxe": "Хороший обед"}
@@ -469,9 +459,11 @@ def check_content(doc: str) -> None:
 
     # Долга нет: без денег трата не проходит.
     broke = b.Game(b.SHORT, 11)
+    broke.start_day()
+    broke.buy("food-cheap")
+    broke.choose_transport("bus")
     broke.cash = 100
     broke.savings = 0
-    broke.start_day()
     if "не хватает денег" not in broke.spend_block_reason("housing"):
         fail.append("без денег трата должна блокироваться: не хватает денег")
 
@@ -481,8 +473,8 @@ def check_content(doc: str) -> None:
             fail.append(f"сумма {amount} отсутствует в документе")
 
     # Пороги оценки по деньгам.
-    for balance, want in [(7000, "Отличный результат"), (6999, "Хороший результат"),
-                           (3000, "Хороший результат"), (2999, "Есть над чем поработать"),
+    for balance, want in [(12000, "Отличный результат"), (11999, "Хороший результат"),
+                           (8000, "Хороший результат"), (7999, "Есть над чем поработать"),
                            (0, "Есть над чем поработать"), (-1, "Бюджет ушёл в минус")]:
         if b.money_grade(balance) != want:
             fail.append(f"оценка по деньгам {balance}: {b.money_grade(balance)} != {want}")
@@ -500,43 +492,6 @@ def check_content(doc: str) -> None:
                             (1000, 30, "Провал: ни денег, ни настроения")]:
         if b.overall_grade(bal, mood) != want:
             fail.append(f"вердикт ({bal},{mood}): {b.overall_grade(bal, mood)} != {want}")
-
-    # Выгорание: смена при настроении < 25 оплачивается на 70 %.
-    g = b.Game(b.SHORT)
-    g.mood = 20
-    g.energy = 100
-    g.start_day()
-    g.buy("food-cheap")
-    g.choose_transport("bus")
-    # Настроение к моменту смены уже упало (скука, брошенный Соломон, еда),
-    # поэтому считаем выплату от фактического настроения.
-    mood_now = g.mood
-    gain = b.round50(b.JOBS["courier"][0] * b.income_multiplier(mood_now) * 0.7)
-    if g.work("courier").find(f"+{gain}") < 0:
-        fail.append(f"смена в выгорании должна оплачиваться по ставке 0,7 (ждали +{gain})")
-
-    # Недельный лимит смен: 10 смен любого вида, одиннадцатая — отказ.
-    g = b.Game(b.SHORT)
-    g.mood = 80
-    g.energy = 100
-    g.start_day()
-    g.buy("food-cheap")
-    g.choose_transport("bus")
-    g.energy = 100
-    g.current_day = 2
-    g.week_shifts[0] = b.SHORT.weekly_shift_cap
-    if not g.work("lab").startswith(("недельный", "лимит")):
-        fail.append(f"смена сверх лимита {b.SHORT.weekly_shift_cap} должна блокироваться")
-
-    # Лимит смен сбрасывается на следующей неделе.
-    g = b.Game(b.SHORT)
-    g.current_week = 1
-    g.week_shifts[1] = b.SHORT.weekly_shift_cap
-    g.start_day()
-    g.buy("food-cheap")
-    g.choose_transport("bus")
-    if g.work("lab").startswith(("недельный", "лимит")):
-        fail.append("недельный лимит смен должен сбрасываться в начале новой недели")
 
     # Долга нет: без денег жильё не оплачивается, кошелёк не уходит в минус.
     g = b.Game(b.SHORT)
@@ -587,9 +542,14 @@ def check_content(doc: str) -> None:
     verdicts = set()
     for policy in b.POLICIES.values():
         verdicts.add(b.expense_audit(b.Game(b.SHORT, 11).run(policy))["вердикт"])
-    for want in ("Расходы распределены грамотно", "Расходы покрыты, но резерв не создан"):
-        if want not in verdicts:
-            fail.append(f"вердикт проверки расходов «{want}» недостижим")
+    if "Расходы покрыты, но резерв не создан" not in verdicts:
+        fail.append("вердикт проверки расходов «Расходы покрыты, но резерв не создан» недостижим")
+    # «Расходы распределены грамотно» — когда обязательные закрыты и есть
+    # подушка: так игрок выглядит на всех этапах игры.
+    smart = b.Game(b.SHORT, 11).run(b.policy_balanced)
+    smart.savings = 3000
+    if b.expense_audit(smart)["вердикт"] != "Расходы распределены грамотно":
+        fail.append("вердикт проверки расходов «Расходы распределены грамотно» недостижим")
 
     # Проверка расходов: обязательные не покрыты.
     g = b.Game(b.SHORT, 11).run(b.policy_gecko)
@@ -599,11 +559,11 @@ def check_content(doc: str) -> None:
 
     # Спрайты персонажа: подготовленный набор и исходный арт.
     sprites = sorted(glob.glob(os.path.join("src", "assets", "squirrel", "sprites", "pose-*.png")))
-    if len(sprites) != 28:
-        fail.append(f"ожидалось 28 подготовленных спрайтов, найдено {len(sprites)}")
+    if len(sprites) != 31:
+        fail.append(f"ожидалось 31 подготовленных спрайтов, найдено {len(sprites)}")
     raw = sorted(glob.glob(os.path.join("src", "assets", "squirrel", "pose-*_*.png")))
-    if len(raw) != 27:
-        fail.append(f"ожидалось 27 исходных поз с загрязнением, найдено {len(raw)}")
+    if len(raw) != 30:
+        fail.append(f"ожидалось 30 исходных поз с загрязнением, найдено {len(raw)}")
     if not os.path.exists(os.path.join("src", "assets", "squirrel", "пояснялка по поводу имён.md")):
         fail.append("нет пояснения к названиям спрайтов")
     if "src/assets/squirrel/sprites" not in doc:
@@ -614,7 +574,7 @@ def check_content(doc: str) -> None:
             fail.append(f"в документе нет строки описания позы: {row}")
 
 
-TAB_LABELS = {"work": "Заработать", "spend": "Потратить", "solomon": "Соломон"}
+TAB_LABELS = {"spend": "Потратить", "solomon": "Соломон"}
 
 
 def check_locations(doc: str, data: dict) -> None:

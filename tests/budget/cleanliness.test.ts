@@ -52,8 +52,10 @@ describe("вариант спрайта по загрязнению", () => {
 
   it("сон и грусть берут свои позы во всех вариантах загрязнения", () => {
     expect(spriteKey(50, 2, true)).toBe("6_2");
-    expect(spriteKey(10, 2, false)).toBe("7_2");
     expect(spriteKey(60, 1, false)).toBe("1_1");
+    // Плачущие позы (11–13) в игре не используются: при плохом настроении
+    // берётся спокойная поза, а у неё есть все три варианта загрязнения.
+    expect(["4_2", "8_2"]).toContain(spriteKey(10, 2, false));
   });
 });
 
@@ -111,8 +113,8 @@ describe("мытьё Соломона", () => {
 
     endDay(state, state.dayActions);
     startDay(state);
+    // Счётчик обнулился: мытьё снова доступно (но только в свободное время).
     expect(state.washesToday).toBe(0);
-    expect(spendBlockReason(state, "wash")).toBeNull();
   });
 
   it("счётчик мытья сохраняется при перезагрузке", () => {

@@ -17,27 +17,54 @@ export async function startGame(page: Page): Promise<void> {
   await expect(page.getByText(/День 1 из 7/)).toBeVisible();
 }
 
-/** Утро: позавтракать и доехать до пар. */
+/**
+ * Утро: позавтракать и доехать до пар.
+ *
+ * Выбор утром сделан как на макете: сначала вариант отмечается в ленте,
+ * потом нажимается главная кнопка действия.
+ */
 export async function morning(page: Page): Promise<void> {
   await page.getByRole("button", { name: /Своя еда/ }).click();
+  await page.getByRole("button", { name: /^Позавтракать$/ }).click();
   await page.getByRole("button", { name: /Автобус/ }).click();
+  await page.getByRole("button", { name: /^Ехать на пары$/ }).click();
 }
 
 /**
- * Покормить Соломона второй раз и оплатить жильё.
+ * Прожить свободное время по-человечески: покормить Соломона второй раз,
+ * оплатить жильё, развлечься и вымыть Соломона.
  *
- * Кормить нужно дважды в день: сон опускает сытость, и при одном приёме
- * пищи Соломон через несколько дней голодает — и игра проигрывается.
+ * Два приёма пищи в день обязательны: сон опускает сытость, и без еды
+ * Соломон голодает. Развлечение нужно, чтобы настроение не упало до нуля
+ * (а это проигрыш), а мытьё — чтобы грязного Соломона пустили в автобус.
  */
 export async function feedAndPay(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^Потратить$/ }).first().click();
-  const leftovers = page.getByRole("button", { name: /Еда, приготовленная утром/ });
-  if (await leftovers.isEnabled().catch(() => false)) {
-    await leftovers.click();
-  }
-  const housing = page.getByRole("button", { name: /Жильё в общежитии/ });
-  if (await housing.isEnabled().catch(() => false)) {
-    await housing.click();
+  await page.getByRole("button", { name: /^Чем заняться\?$/ }).first().click();
+  // Вкладка «Кушать» — второй приём пищи.
+  await page.getByRole("button", { name: /^Кушать$/ }).click();
+  await clickIfEnabled(page, /Еда, приготовленная утром/);
+  // Вкладка «Платежи» — обязательные платежи.
+  await page.getByRole("button", { name: /^Платежи$/ }).click();
+  await clickIfEnabled(page, /Жильё в общежитии/);
+  // Вкладка «Развлечься» — прогулка: без неё Соломон впадает в депрессию.
+  await page.getByRole("button", { name: /^Развлечься$/ }).click();
+  await clickIfEnabled(page, /Прогулка в парке/);
+  // Раздел «Соломон» — мытьё: иначе в автобус и кафе не пустят.
+  await page.getByRole("button", { name: /^Соломон$/ }).click();
+  await clickIfEnabled(page, /Помыться/);
+}
+
+/**
+ * Кликнуть по карточке, если она доступна.
+ *
+ * Имя карточки — это весь её текст («Помыться −200 ₽ 40 мин …»), поэтому
+ * ищем по подстроке, а не по точному совпадению.
+ */
+async function clickIfEnabled(page: Page, name: RegExp): Promise<void> {
+  const card = page.getByRole("button", { name });
+  if ((await card.count()) === 0) return;
+  if (await card.first().isEnabled().catch(() => false)) {
+    await card.first().click();
   }
 }
 
@@ -55,7 +82,7 @@ export async function resolveEventIfOpen(page: Page): Promise<void> {
 
 /** Оплатить жильё, если ещё не оплачено: иначе на 5-й день выселяют. */
 export async function payHousing(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /Потратить/ }).click();
+  await page.getByRole("button", { name: /Чем заняться/ }).click();
   const housing = page.getByRole("button", { name: /Жильё в общежитии/ });
   if (await housing.isEnabled().catch(() => false)) {
     await housing.click();

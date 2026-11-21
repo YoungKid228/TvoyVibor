@@ -2,53 +2,19 @@ import { RULES, SCENARIOS } from "../data/scenario";
 import type { GameState } from "./types";
 
 /**
- * Шкалы: ежедневный спад, множитель дохода, выгорание, сон.
+ * Шкалы: ежедневный спад, пары, скука, сон.
  *
- * Правило «настроение влияет на доход» нельзя размазывать по UI — поэтому
- * весь расчёт живёт здесь. Повторяет `scripts/balance_sim.py`.
+ * Все расчёты шкал живут здесь, а не в интерфейсе. Повторяет
+ * `scripts/balance_sim.py`.
  */
-
-/** Множитель дохода от настроения: 0.5 при 0 → 1.0 при 100. */
-export function incomeMultiplier(mood: number): number {
-  return 0.5 + (0.5 * mood) / 100;
-}
-
-/**
- * Доход округляется до 50 ₽ — как реальные выплаты.
- *
- * Округление половины — к чётному, как в Python (`round`): 825 / 50 = 16.5 →
- * 16 → 800 ₽, а не 850. Иначе код игры разошёлся бы с эталоном
- * `scripts/balance_sim.py` на 50 ₽ за смену.
- */
-export function round50(value: number): number {
-  const quotient = value / 50;
-  const floor = Math.floor(quotient);
-  const diff = quotient - floor;
-  if (diff > 0.5) return (floor + 1) * 50;
-  if (diff < 0.5) return floor * 50;
-  // Ровно половина — к чётному, как в Python.
-  return (floor % 2 === 0 ? floor : floor + 1) * 50;
-}
-
-/** Фактическая оплата смены с учётом настроения и выгорания. */
-export function shiftPay(base: number, mood: number): number {
-  const burnt = mood < RULES.burnoutMood;
-  const rate = burnt ? RULES.burnoutRate : 1;
-  return round50(base * incomeMultiplier(mood) * rate);
-}
-
-/** Идёт ли выгорание: настроение ниже порога. */
-export function isBurntOut(mood: number): boolean {
-  return mood < RULES.burnoutMood;
-}
 
 /**
  * Обрезать все шкалы в диапазон 0…100.
  *
  * Обрезка живёт в ядре, а не только при отрисовке (`ScalePanel`). Пока шкала
- * может уйти за потолок, доход считается от неверного значения (при настроении
- * 150 курьер давал 2 000 ₽ вместо 1 600), а игрок видит одно число, а модель —
- * другое. Это самый дорогой вид расхождения в обучающей игре.
+ * может уйти за потолок, итоги считаются от неверного значения, а игрок видит
+ * одно число, а модель — другое. Это самый дорогой вид расхождения в
+ * обучающей игре.
  */
 export function clampScales(state: GameState): void {
   const scales = state.scales;
@@ -196,7 +162,12 @@ export function sleep(state: GameState): string {
   return "сон";
 }
 
-/** Пары: обязательный блок дня, который отнимает силы. */
+/**
+ * Пары: обязательный блок дня, который отнимает силы, сытость и чистоту.
+ *
+ * Шесть часов лекций — это и голод, и аудитория, в которой за день набирается
+ * усталость. Если этого не показывать, игрок не понимает, куда делся день.
+ */
 export function classes(state: GameState): string[] {
   const notes: string[] = [];
   state.scales.energy = Math.max(
@@ -204,7 +175,14 @@ export function classes(state: GameState): string[] {
     state.scales.energy - RULES.classesEnergyCost,
   );
   state.scales.mood = Math.max(0, state.scales.mood - RULES.classesMoodCost);
+  state.scales.hunger = Math.max(0, state.scales.hunger - RULES.classesHungerCost);
+  state.scales.cleanliness = Math.max(
+    0,
+    state.scales.cleanliness - RULES.classesCleanlinessCost,
+  );
   notes.push(`энергия −${RULES.classesEnergyCost}: пары`);
+  notes.push(`сытость −${RULES.classesHungerCost}: пары`);
+  notes.push(`чистота −${RULES.classesCleanlinessCost}: пары`);
   clampScales(state);
   return notes;
 }

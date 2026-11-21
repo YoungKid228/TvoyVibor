@@ -35,6 +35,14 @@ export type Scales = {
   cleanliness: number;
 };
 
+/** Запас приготовленной еды. */
+export type MealStock = {
+  /** Сколько порций осталось. */
+  servings: number;
+  /** В какой день еду приготовили. */
+  preparedOnDay: number;
+};
+
 /** Статьи расходов для итогового разбора. */
 export type SpendCategory =
   | "обязательные"
@@ -54,13 +62,13 @@ export type SpendCategoryKey =
   | "phone"
   | "savings";
 
-export type JobId = "courier" | "tutor" | "lab";
-
 export type SpendId =
   | "food-cheap"
   | "food-fast"
   | "food-luxe"
   | "food-leftovers"
+  | "food-coffee"
+  | "food-syrniki"
   | "housing"
   | "internet"
   | "transit-pass"
@@ -68,10 +76,10 @@ export type SpendId =
   | "kino"
   | "park"
   | "tiktok"
+  | "computer"
   | "pet"
   | "wash"
-  | "lessons"
-  | "shower";
+  | "lessons";
 
 export type TransportId = "walk" | "bus" | "taxi";
 
@@ -83,27 +91,6 @@ export type ProfessionId =
   | "courier"
   | "engineer"
   | "creative";
-
-export type Job = {
-  id: JobId;
-  label: string;
-  /** Иконка работы из набора `src/assets/ui`. */
-  icon: string;
-  /** Базовая оплата за смену, ₽. */
-  pay: number;
-  /** Расход энергии за смену. */
-  energyCost: number;
-  /** Расход настроения за смену. */
-  moodCost: number;
-  /** Длительность смены, минут. */
-  minutes: number;
-  /** Условие доступности: null | "internet" | "internet+lessons" | "day2". */
-  requires: string | null;
-  /** Лимит смен этой работы за неделю. */
-  limit: number;
-  /** Отсылка к местной культуре ЕАО. */
-  local: boolean;
-};
 
 export type Spend = {
   id: SpendId;
@@ -148,6 +135,8 @@ export type Transport = {
   minutes: number;
   /** Расход энергии. */
   energyCost: number;
+  /** Расход сытости: до пары ещё нужно идти. */
+  hungerCost: number;
   /** Насколько Соломон пачкается по дороге. */
   dirt: number;
   moodGain: number;
@@ -174,12 +163,8 @@ export type Profession = {
   icon: string;
   /** Дополнительная репутация на старте. */
   repBonus: number;
-  /** Дополнительные смены за неделю. */
-  shiftBonus: number;
   /** Дополнительное стартовое настроение. */
   moodBonus: number;
-  /** Добавка к оплате смены, ₽. */
-  payBonus: number;
 };
 
 export type Scenario = {
@@ -202,7 +187,6 @@ export type Scenario = {
   giftDay: number;
   /** Дни снегопада: дорога дороже и дольше. */
   snowDays: number[];
-  weeklyShiftCap: number;
   hungerDecay: number;
   /** Насколько падает общая чистота за день (0…100). */
   cleanlinessDecay: number;
@@ -210,9 +194,6 @@ export type Scenario = {
 
 /** Правила модели — константы, общие для обоих режимов. */
 export type Rules = {
-  weeklyShiftCap: number;
-  burnoutMood: number;
-  burnoutRate: number;
   boringDaily: number;
   sleepMood: number;
   /** Базовая энергия, которую возвращает сон. */
@@ -229,6 +210,16 @@ export type Rules = {
   petPerDay: number;
   /** Сколько раз в день можно мыть Соломона. */
   washPerDay: number;
+  /** Сколько раз в день можно стирать вещи. */
+  laundryPerDay: number;
+  /** Сколько порций в приготовленной еде. */
+  mealServings: number;
+  /** Сколько дней еда хранится: готовим в день D — доступно в D и D+1. */
+  mealKeepsDays: number;
+  /** Сколько развлечений нужно за день, чтобы Соломон не грустил. */
+  funPerDay: number;
+  /** Насколько падает настроение за день без развлечений. */
+  noFunMoodPenalty: number;
   /** Чистота Соломона, начиная с которой он считается чистым (вариант спрайта 0). */
   cleanAt: number;
   /** Чистота Соломона, ниже которой он считается сильно грязным (вариант 2). */
@@ -245,12 +236,12 @@ export type Rules = {
   classesEnergyCost: number;
   /** Расход настроения за пары. */
   classesMoodCost: number;
+  /** Расход сытости за пары. */
+  classesHungerCost: number;
+  /** Расход чистоты за пары. */
+  classesCleanlinessCost: number;
   /** Длительность пар, минут. */
   classesMinutes: number;
-  /** Сколько дней уроков подряд открывают репетиторство. */
-  lessonStreakForTutor: number;
-  /** Настроение от сделанных уроков. */
-  lessonMoodGain: number;
   /** Штраф настроению за пропущенные уроки. */
   missedLessonMood: number;
   /** После скольких пропусков у Соломона начинаются проблемы с учёбой. */
@@ -259,8 +250,17 @@ export type Rules = {
   moodForFun: number;
   /** Сытость, ниже которой Соломон считается брошенным. */
   neglectHunger: number;
-  /** Сколько дней без присмотра — и игрок проигрывает. */
-  neglectDaysToLose: number;
+  /**
+   * Сколько дней подряд энергия или сытость на нуле — и приходит счёт на
+   * лечение (Соломон теряет сознание).
+   */
+  collapseDaysToBill: number;
+  /** Счёт за лечение, ₽. */
+  treatmentCost: number;
+  /** Обморок на морозе: сколько настроения уходит. */
+  sickMoodCost: number;
+  /** Обморок на морозе: сколько энергии уходит. */
+  sickEnergyCost: number;
   cleanFactorGood: number;
   cleanFactorWeak: number;
   cleanFactorBad: number;
@@ -330,7 +330,7 @@ export type DayLogEntry = {
 
 /** Причина проигрыша. */
 export type LossReason = {
-  id: "housing" | "neglect";
+  id: "housing" | "depression";
   title: string;
   text: string;
 };
@@ -354,7 +354,6 @@ export type GameStats = {
   savings: number;
   avgMood: number;
   avgCleanliness: number;
-  shifts: number;
   income: number;
   expenses: number;
   moneyGrade: string;
@@ -394,12 +393,6 @@ export type GameState = {
   items: ItemId[];
   income: number;
   expenses: number;
-  /** Всего смен за игру. */
-  shifts: number;
-  /** Смены по неделям: номер недели → число смен. */
-  weekShifts: Record<number, number>;
-  /** Смены конкретной работы по неделям: "неделя:работа" → число. */
-  weekJobs: Record<string, number>;
   spentByCategory: Record<SpendCategory, number>;
   /** Флаги одноразовых событий — чтобы нельзя было пройти их дважды. */
   phoneResolved: boolean;
@@ -417,14 +410,23 @@ export type GameState = {
   petsToday: number;
   /** Сколько раз игрок мыл Соломона. */
   washesToday: number;
+  /** Сколько раз игрок стирал вещи сегодня. */
+  laundriesToday: number;
+  /** Сколько развлечений было сегодня. */
+  funToday: number;
   /** Завтрак выбран? */
   breakfastToday: boolean;
   /** Как добрались до пар? */
   transportToday: TransportId | null;
   /** Сколько раз ел сегодня. */
   mealsToday: number;
-  /** Сегодня приготовили еду — осталась на второй приём пищи. */
-  preparedMeal: boolean;
+  /**
+   * Запас еды, приготовленной утром.
+   *
+   * Еда хранится два дня и считается порциями: приготовил — есть запас
+   * на сегодня и на завтра, а если не съел и завтра — еда пропадает.
+   */
+  mealStock: MealStock;
   /** Уроки сделаны сегодня? */
   lessonsToday: boolean;
   /** Сколько дней подряд сделаны уроки. */
@@ -441,8 +443,13 @@ export type GameState = {
   transitUntil: number;
   /** В какой день последний раз стирали вещи. */
   laundryDay: number;
-  /** Сколько дней подряд Соломон брошен. */
-  neglectDays: number;
+  /**
+   * Сколько дней подряд энергия или сытость была на нуле. На второй такой
+   * день Соломон теряет сознание, и приходит счёт на лечение.
+   */
+  collapseDays: number;
+  /** Сколько счетов на лечение за игру. */
+  treatmentBills: number;
   /** Проигрыш: причина и факт. */
   lost: boolean;
   lossReason: LossReason | null;

@@ -5,9 +5,8 @@ import {
   rest,
   resolveEvent,
   saveToSavings,
-  work,
 } from "../core/reducer";
-import type { GameState, JobId, TransportId } from "../core/types";
+import type { GameState, TransportId } from "../core/types";
 
 /**
  * Типовые стратегии поведения.
@@ -17,28 +16,15 @@ import type { GameState, JobId, TransportId } from "../core/types";
  * результат. Если числа в игре разойдутся с эталоном — тесты упадут.
  *
  * День устроен по часам, поэтому стратегия идёт по фазам:
- * утро (завтрак и дорога) → свободное время (работа, уход, траты) → сон.
+ * утро (завтрак и дорога) → свободное время (уход, траты, развлечения) → сон.
+ *
+ * Заработка в игре нет: игрок — студент, и траты он делает из капитала.
  *
  * День события — обычный день: сначала закрывается событие, потом игрок
  * продолжает жить как обычно.
  */
 
 type Policy = (state: GameState) => string[];
-
-/**
- * Взять первую доступную смену из списка по приоритету.
- * Если лимит недели исчерпан или не хватает энергии — пробуем следующую работу,
- * как поступил бы игрок, а не сдаёмся после первой неудачи.
- */
-export function tryJobs(state: GameState, order: JobId[]): string[] {
-  for (const key of order) {
-    const result = work(state, key);
-    if (!/^(нет |недельный|лимит|мало |нужен |лаборантом|работать|не хватит)/.test(result)) {
-      return [result];
-    }
-  }
-  return ["смен нет"];
-}
 
 /**
  * Закрыть открытое событие: вариант зависит от типа события.
@@ -62,7 +48,18 @@ function morning(
   return acts;
 }
 
-/** Копилка: копит и почти не тратит. Соломон брошен — счастье падает. */
+/** Поесть из запаса, если он есть, иначе купить еду. */
+function meal(state: GameState, fallback: "food-cheap" | "food-fast" | "food-luxe"): string {
+  if (state.mealStock.servings > 0) return buy(state, "food-leftovers");
+  return buy(state, fallback);
+}
+
+/**
+ * Копилка: копит и почти не тратит, но каждый день гуляет.
+ *
+ * Гулять приходится: без развлечений настроение падает на 12 в день, а
+ * ноль настроения — это проигрыш от депрессии.
+ */
 export const policySaver: Policy = (state) => {
   const acts: string[] = [];
 
@@ -73,19 +70,24 @@ export const policySaver: Policy = (state) => {
     // Жильё платить надо: иначе выселение.
     if (!state.housingPaid) acts.push(buy(state, "housing"));
     if (state.day === 1) acts.push(saveToSavings(state, 4000));
-    // Интернет не покупает: работает только лаборантом.
-    acts.push(...tryJobs(state, ["lab"]));
-    if (state.scales.hunger < 45 || state.scales.energy < 40) {
-      acts.push(buy(state, "food-cheap"));
-    }
+    // Интернет не покупает: тик-токов и игр нет.
+    // Еда — из запаса: он остался от завтрака.
+    acts.push(meal(state, "food-cheap"));
+    // Развлечение — ровно одно в день, иначе Соломон впадёт в депрессию.
+    acts.push(buy(state, "park"));
+    // Ласка — бесплатно, а настроение поднимает.
+    acts.push(buy(state, "pet"));
+    // Мытьё — до того, как Соломон станет сильно грязным: грязного не
+    // пускают в транспорт, а Соломон ещё и хуже спит.
+    if (state.scales.cleanliness < 25) acts.push(buy(state, "wash"));
   }
 
   acts.push(rest(state));
   return acts;
 };
 
-/** Трудяга: максимум смен, никаких развлечений и никакого ухода за Соломоном. */
-export const policyWorker: Policy = (state) => {
+/** Ученик: учится и ест в кафе, развлекается через день. */
+export const policyStudent: Policy = (state) => {
   const acts: string[] = [];
 
   acts.push(...morning(state, "food-fast", "bus"));
@@ -93,16 +95,21 @@ export const policyWorker: Policy = (state) => {
   if (state.phase === "free") {
     acts.push(closeEvent(state, "repair", "mid"));
     if (!state.housingPaid) acts.push(buy(state, "housing"));
-    if (!hasInternet(state)) acts.push(buy(state, "internet"));
-    acts.push(...tryJobs(state, ["courier", "tutor", "lab"]));
-    if (state.scales.hunger < 50) acts.push(buy(state, "food-fast"));
+    acts.push(meal(state, "food-fast"));
+    // Уроки каждый день: без них Соломону тяжело.
+    acts.push(buy(state, "lessons"));
+    // Развлечение — через день: без него настроение дойдёт до нуля.
+    if (state.day % 2 === 1) acts.push(buy(state, "park"));
+    // Мытьё — до того, как Соломон станет сильно грязным: грязного не
+    // пускают в автобус, такси и кафе.
+    if (state.scales.cleanliness < 45) acts.push(buy(state, "wash"));
   }
 
   acts.push(rest(state));
   return acts;
 };
 
-/** Баланс: работа в хорошей форме, уход за Соломоном, умеренные траты. */
+/** Баланс: уроки, уход за Соломоном, умеренные траты и развлечения. */
 export const policyBalanced: Policy = (state) => {
   const acts: string[] = [];
 
@@ -112,17 +119,15 @@ export const policyBalanced: Policy = (state) => {
     acts.push(closeEvent(state, "repair", "mid"));
     if (!state.housingPaid) acts.push(buy(state, "housing"));
     if (!hasInternet(state)) acts.push(buy(state, "internet"));
-    // Уроки каждый день: три дня подряд открывают репетиторство.
+    // Уроки каждый день: без них Соломону тяжело.
     acts.push(buy(state, "lessons"));
-    acts.push(...tryJobs(state, ["courier", "tutor", "lab"]));
     // Уход за Соломоном: он грустит, когда за ним не смотрят.
     acts.push(buy(state, "pet"));
     // Чистота общая: одного мытья хватает и за игрока, и за Соломона.
     if (state.scales.cleanliness < 60) acts.push(buy(state, "wash"));
-    else if (state.scales.cleanliness < 80) acts.push(buy(state, "shower"));
-    if (state.scales.hunger < 60 || state.scales.energy < 45) {
-      acts.push(buy(state, state.preparedMeal ? "food-leftovers" : "food-fast"));
-    }
+    // Второй приём пищи: сон опускает сытость, без еды Соломон голодает.
+    acts.push(meal(state, "food-fast"));
+    // Раз в два дня — прогулка в парке.
     if (state.day % 2 === 0) acts.push(buy(state, "park"));
   }
 
@@ -130,7 +135,7 @@ export const policyBalanced: Policy = (state) => {
   return acts;
 };
 
-/** Гедонист: развлечения и дорогие покупки в долг. Деньги кончаются. */
+/** Гедонист: дорогая еда, такси, кино и щедрые подарки. Деньги кончаются. */
 export const policyGecko: Policy = (state) => {
   const acts: string[] = [];
 
@@ -140,12 +145,12 @@ export const policyGecko: Policy = (state) => {
     acts.push(closeEvent(state, "new", "big"));
     if (!state.housingPaid) acts.push(buy(state, "housing"));
     if (!hasInternet(state)) acts.push(buy(state, "internet"));
-    acts.push(buy(state, "kino"));
+    if (state.day % 2 === 1) acts.push(buy(state, "kino"));
     acts.push(buy(state, "park"));
-    acts.push(...tryJobs(state, ["courier", "lab"]));
-    if (state.scales.hunger < 60 || state.scales.energy < 45) {
-      acts.push(buy(state, "food-luxe"));
-    }
+    acts.push(meal(state, "food-luxe"));
+    // Грязного Соломона не пускают в такси, кино и ресторан, поэтому
+    // богатый игрок тоже моется — иначе он останется без дороги.
+    if (state.scales.cleanliness < 45) acts.push(buy(state, "wash"));
   }
 
   acts.push(rest(state));
@@ -154,7 +159,7 @@ export const policyGecko: Policy = (state) => {
 
 export const POLICIES: Record<string, Policy> = {
   Копилка: policySaver,
-  Трудяга: policyWorker,
+  Ученик: policyStudent,
   Баланс: policyBalanced,
   Гедонист: policyGecko,
 };

@@ -3,7 +3,6 @@ import type {
   DayPlan,
   ExpenseAudit,
   GameEvent,
-  Job,
   Location,
   Profession,
   Rules,
@@ -20,19 +19,6 @@ import type {
  * сверяется с эталоном `scripts/balance_sim.py` в `scripts/verify_hermes_doc.py`.
  * Здесь только типизация и разбор структуры, никаких дублирующих констант.
  */
-
-type RawJob = {
-  id: string;
-  label: string;
-  icon: string;
-  pay: number;
-  moodCost: number;
-  energyCost: number;
-  minutes: number;
-  limit: number;
-  requires: string | null;
-  local: boolean;
-};
 
 type RawSpend = {
   id: string;
@@ -61,6 +47,7 @@ type RawTransport = {
   cost: number;
   minutes: number;
   energyCost: number;
+  hungerCost: number;
   dirt: number;
   moodGain: number;
 };
@@ -69,9 +56,7 @@ type RawProfession = {
   id: string;
   label: string;
   icon: string;
-  payBonus: number;
   moodBonus: number;
-  shiftBonus: number;
   repBonus: number;
 };
 
@@ -102,7 +87,6 @@ type RawLocation = {
 
 const data = raw as unknown as {
   day: DayPlan;
-  jobs: RawJob[];
   spends: RawSpend[];
   transport: RawTransport[];
   professions: RawProfession[];
@@ -114,19 +98,6 @@ const data = raw as unknown as {
   spendCategories: Record<SpendCategoryKey, SpendCategory>;
   entertainmentSpends: string[];
 };
-
-export const JOBS: Job[] = data.jobs.map((job) => ({
-  id: job.id as Job["id"],
-  label: job.label,
-  icon: job.icon,
-  pay: job.pay,
-  energyCost: job.energyCost,
-  moodCost: job.moodCost,
-  minutes: job.minutes,
-  requires: job.requires,
-  limit: job.limit,
-  local: job.local,
-}));
 
 export const SPENDS: Spend[] = data.spends.map((spend) => ({
   id: spend.id as Spend["id"],
@@ -155,6 +126,7 @@ export const TRANSPORTS: Transport[] = data.transport.map((item) => ({
   cost: item.cost,
   minutes: item.minutes,
   energyCost: item.energyCost,
+  hungerCost: item.hungerCost,
   dirt: item.dirt,
   moodGain: item.moodGain,
 }));
@@ -164,16 +136,14 @@ export const PROFESSIONS: Profession[] = data.professions.map((prof) => ({
   label: prof.label,
   icon: prof.icon,
   repBonus: prof.repBonus,
-  shiftBonus: prof.shiftBonus,
   moodBonus: prof.moodBonus,
-  payBonus: prof.payBonus,
 }));
 
 const EVENT_HINTS: Record<string, Record<string, string>> = {
   phone: {
     repair: "Починим — почти вдвое дешевле, но связь работает через день.",
     new: "Новый телефон дорогой, зато радость каждый день.",
-    old: "Бесплатно, но без телефона нет курьерской доставки и тик-тока.",
+    old: "Бесплатно, но без телефона нет тик-тока и игр в компьютер.",
   },
   gift: {
     big: "Впечатление сильное, но дыра в кошельке тоже.",
@@ -189,7 +159,7 @@ const EVENT_TITLES: Record<string, string> = {
 
 const EVENT_DESCRIPTIONS: Record<string, string> = {
   phone:
-    "Телефон — рабочий инструмент: без него не выйти на курьерскую доставку и не посмотреть тик-токи. Ремонт, новый или отказ от связи?",
+    "Телефон держит связь: без него не посмотреть тик-токи и не поиграть в компьютер. Ремонт, новый или отказ от связи?",
   gift:
     "Другу сегодня день рождения. Внимание важнее суммы — но и сумма кое-что значит.",
 };
@@ -216,9 +186,6 @@ export const EVENTS: GameEvent[] = data.events.map((event) => ({
 export const DAY: DayPlan = data.day;
 
 export const RULES: Rules = {
-  weeklyShiftCap: data.rules.weeklyShiftCap as number,
-  burnoutMood: data.rules.burnoutMood as number,
-  burnoutRate: data.rules.burnoutRate as number,
   boringDaily: data.rules.boringDaily as number,
   sleepMood: data.rules.sleepMood as number,
   sleepEnergy: data.rules.sleepEnergy as number,
@@ -228,6 +195,11 @@ export const RULES: Rules = {
   sleepPerDay: data.rules.sleepPerDay as number,
   petPerDay: data.rules.petPerDay as number,
   washPerDay: data.rules.washPerDay as number,
+  laundryPerDay: data.rules.laundryPerDay as number,
+  mealServings: data.rules.mealServings as number,
+  mealKeepsDays: data.rules.mealKeepsDays as number,
+  funPerDay: data.rules.funPerDay as number,
+  noFunMoodPenalty: data.rules.noFunMoodPenalty as number,
   cleanAt: data.rules.cleanAt as number,
   dirtyAt: data.rules.dirtyAt as number,
   cleanlinessDecay: data.rules.cleanlinessDecay as number,
@@ -238,14 +210,17 @@ export const RULES: Rules = {
   hygienePenalty: data.rules.hygienePenalty as number,
   classesEnergyCost: data.rules.classesEnergyCost as number,
   classesMoodCost: data.rules.classesMoodCost as number,
+  classesHungerCost: data.rules.classesHungerCost as number,
+  classesCleanlinessCost: data.rules.classesCleanlinessCost as number,
   classesMinutes: data.rules.classesMinutes as number,
-  lessonStreakForTutor: data.rules.lessonStreakForTutor as number,
-  lessonMoodGain: data.rules.lessonMoodGain as number,
   missedLessonMood: data.rules.missedLessonMood as number,
   lessonProblemsAfter: data.rules.lessonProblemsAfter as number,
   moodForFun: data.rules.moodForFun as number,
   neglectHunger: data.rules.neglectHunger as number,
-  neglectDaysToLose: data.rules.neglectDaysToLose as number,
+  collapseDaysToBill: data.rules.collapseDaysToBill as number,
+  treatmentCost: data.rules.treatmentCost as number,
+  sickMoodCost: data.rules.sickMoodCost as number,
+  sickEnergyCost: data.rules.sickEnergyCost as number,
   cleanFactorGood: data.rules.cleanFactorGood as number,
   cleanFactorWeak: data.rules.cleanFactorWeak as number,
   cleanFactorBad: data.rules.cleanFactorBad as number,
@@ -274,7 +249,7 @@ export const LOCATIONS: Record<string, Location> = Object.fromEntries(
   ]),
 );
 
-/** Какая вкладка открывает какую локацию: «Заработать» → город и т. д. */
+/** Какая вкладка открывает какую локацию: «Потратить» → Арбат и т. д. */
 export const TAB_LOCATIONS: Record<string, string> = { ...data.tabLocations };
 
 /** Локация по идентификатору; неизвестная — первая доступная. */
@@ -302,7 +277,6 @@ function makeScenario(
     phoneDay: raw.phoneDay as number,
     giftDay: raw.giftDay as number,
     snowDays: raw.snowDays as number[],
-    weeklyShiftCap: raw.weeklyShiftCap as number,
     hungerDecay: raw.hungerDecay as number,
     cleanlinessDecay: raw.cleanlinessDecay as number,
   };
@@ -324,10 +298,6 @@ export function eventsForScenario(key: ScenarioKey): GameEvent[] {
     if (event.id === "gift") return { ...event, day: current.giftDay };
     return event;
   }).filter((event) => event.day > 0);
-}
-
-export function jobById(id: string): Job | undefined {
-  return JOBS.find((job) => job.id === id);
 }
 
 export function spendById(id: string): Spend | undefined {

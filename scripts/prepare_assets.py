@@ -43,6 +43,16 @@ BOTTOM_MARGIN = 12
 # Разброс ±3.5 %, то есть масштаб исходников единый.
 ART_SCALE = 4.39
 
+# Поправка масштаба для новых грустных поз (11, 12, 13).
+#
+# Они нарисованы чуть крупнее остальных, и в игре Соломон «прыгал» бы при
+# смене настроения. Коэффициенты приводят высоту персонажа к общим ~296 px.
+POSE_SCALE_FIX = {
+    "pose-11_0.png": 0.902,
+    "pose-12_0.png": 1.021,
+    "pose-13_0.png": 0.902,
+}
+
 # Позы, которые есть только в старом наборе: новый арт их не содержит.
 LEGACY_ONLY = {"pose-03"}
 
@@ -94,7 +104,7 @@ def build_poses() -> list[str]:
     for source in sorted(SQUIRREL.glob("pose-*_*.png")):
         image = Image.open(source).convert("RGBA")
         character = image.crop(character_box(image))
-        scale = 1 / ART_SCALE
+        scale = 1 / ART_SCALE * POSE_SCALE_FIX.get(source.name, 1.0)
         character = character.resize(
             (max(1, round(character.width * scale)),
              max(1, round(character.height * scale))),

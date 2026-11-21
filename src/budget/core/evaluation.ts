@@ -8,10 +8,15 @@ import type { ExpenseAudit, GameState, GameStats } from "./types";
  * Повторяет `scripts/balance_sim.py`.
  */
 
-/** Оценка по деньгам — шкала из исходного документа. */
+/**
+ * Оценка по деньгам.
+ *
+ * Шкала сдвинута под новую модель: заработка в игре нет, деньги только
+ * копятся из капитала, поэтому «хороший результат» — это 8 000 ₽ на руках.
+ */
 export function moneyGrade(balance: number): string {
-  if (balance >= 7000) return "Отличный результат";
-  if (balance >= 3000) return "Хороший результат";
+  if (balance >= 12000) return "Отличный результат";
+  if (balance >= 8000) return "Хороший результат";
   if (balance >= 0) return "Есть над чем поработать";
   return "Бюджет ушёл в минус";
 }
@@ -26,7 +31,7 @@ export function moodGrade(mood: number): string {
 
 /** Итоговый вердикт: деньги И настроение. Худшее из двух. */
 export function overallGrade(balance: number, mood: number): string {
-  const moneyOk = balance >= 7000;
+  const moneyOk = balance >= 8000;
   const moodOk = mood >= 50;
   if (moneyOk && moodOk) return "Успех: и деньги есть, и настроение хорошее";
   if (moneyOk) return "Деньги есть, но настроение провалилось";
@@ -111,7 +116,6 @@ export function stats(state: GameState): GameStats {
     savings: state.savings,
     avgMood: pythonRound(avgMood, 1),
     avgCleanliness: pythonRound(avgCleanliness, 1),
-    shifts: state.shifts,
     income: state.income,
     expenses: state.expenses,
     moneyGrade: moneyGrade(balance),

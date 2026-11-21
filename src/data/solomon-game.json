@@ -2,7 +2,7 @@
   "$comment": "Игровые данные «Белка Соломон». Источник правды — scripts/balance_sim.py; числа сверены scripts/verify_hermes_doc.py. При изменении правил сначала правь симулятор, потом этот файл.",
   "meta": {
     "title": "Белка Соломон",
-    "subtitle": "Студент ПГУ им. Шолом-Алейхема в Биробиджане",
+    "subtitle": "Соломон — студент ПГУ им. Шолом-Алейхема в Биробиджане",
     "character": {
       "name": "Соломон",
       "species": "белка",
@@ -68,49 +68,10 @@
       "snowDays": [
         4
       ],
-      "weeklyShiftCap": 10,
       "hungerDecay": 25,
       "cleanlinessDecay": 15
     }
   },
-  "jobs": [
-    {
-      "id": "courier",
-      "label": "Курьерская доставка",
-      "icon": "ui/job-courier",
-      "pay": 1600,
-      "energyCost": 30,
-      "moodCost": 4,
-      "minutes": 180,
-      "requires": "internet",
-      "limit": 10,
-      "local": false
-    },
-    {
-      "id": "tutor",
-      "label": "Репетиторство",
-      "icon": "ui/job-tutor",
-      "pay": 1400,
-      "energyCost": 25,
-      "moodCost": 3,
-      "minutes": 150,
-      "requires": "internet+lessons",
-      "limit": 10,
-      "local": false
-    },
-    {
-      "id": "lab",
-      "label": "Лаборант в университете",
-      "icon": "ui/loc-university",
-      "pay": 1300,
-      "energyCost": 22,
-      "moodCost": 2,
-      "minutes": 150,
-      "requires": "day2",
-      "limit": 10,
-      "local": true
-    }
-  ],
   "spends": [
     {
       "id": "food-cheap",
@@ -139,12 +100,12 @@
       "moodGain": 5,
       "energyCost": 0,
       "energyGain": 12,
-      "hungerGain": 30,
+      "hungerGain": 45,
       "cleanlinessGain": 0,
       "repGain": 0,
       "category": "обязательные",
       "preparesMeal": false,
-      "requires": null
+      "requires": "clean"
     },
     {
       "id": "food-luxe",
@@ -156,12 +117,12 @@
       "moodGain": 10,
       "energyCost": 0,
       "energyGain": 25,
-      "hungerGain": 50,
+      "hungerGain": 55,
       "cleanlinessGain": 0,
       "repGain": 0,
       "category": "обязательные",
       "preparesMeal": false,
-      "requires": null
+      "requires": "clean"
     },
     {
       "id": "food-leftovers",
@@ -173,12 +134,46 @@
       "moodGain": 0,
       "energyCost": 0,
       "energyGain": 6,
-      "hungerGain": 25,
+      "hungerGain": 35,
       "cleanlinessGain": 0,
       "repGain": 0,
       "category": "обязательные",
       "preparesMeal": false,
-      "requires": "preparedMeal"
+      "requires": "mealStock"
+    },
+    {
+      "id": "food-coffee",
+      "label": "Кофе и булочка",
+      "icon": "ui/spend-coffee",
+      "cost": 150,
+      "minutes": 15,
+      "location": "arbat",
+      "moodGain": 4,
+      "energyCost": 0,
+      "energyGain": 5,
+      "hungerGain": 20,
+      "cleanlinessGain": 0,
+      "repGain": 0,
+      "category": "обязательные",
+      "preparesMeal": false,
+      "requires": "clean"
+    },
+    {
+      "id": "food-syrniki",
+      "label": "Сырники со сметаной",
+      "icon": "ui/spend-breakfast",
+      "cost": 200,
+      "minutes": 25,
+      "location": "arbat",
+      "moodGain": 6,
+      "energyCost": 0,
+      "energyGain": 8,
+      "hungerGain": 30,
+      "cleanlinessGain": 0,
+      "repGain": 0,
+      "category": "обязательные",
+      "preparesMeal": false,
+      "requires": "clean"
     },
     {
       "id": "housing",
@@ -202,7 +197,7 @@
       "id": "internet",
       "label": "Интернет",
       "icon": "ui/item-laptop",
-      "cost": 500,
+      "cost": 1500,
       "minutes": 10,
       "location": "dorm",
       "moodGain": 0,
@@ -266,7 +261,7 @@
       "repGain": 0,
       "category": "развлечения",
       "preparesMeal": false,
-      "requires": "mood"
+      "requires": "mood+clean"
     },
     {
       "id": "park",
@@ -303,6 +298,23 @@
       "requires": "internet"
     },
     {
+      "id": "computer",
+      "label": "Играть в компьютер",
+      "icon": "ui/item-laptop",
+      "cost": 0,
+      "minutes": 90,
+      "location": "dorm",
+      "moodGain": 7,
+      "energyCost": 6,
+      "energyGain": 0,
+      "hungerGain": 0,
+      "cleanlinessGain": 0,
+      "repGain": 0,
+      "category": "развлечения",
+      "preparesMeal": false,
+      "requires": "internet"
+    },
+    {
       "id": "pet",
       "label": "Погладить Соломона",
       "icon": "ui/heart-2",
@@ -310,8 +322,8 @@
       "minutes": 15,
       "location": "city",
       "moodGain": 5,
-      "energyCost": 2,
-      "energyGain": 0,
+      "energyCost": 0,
+      "energyGain": 12,
       "hungerGain": 0,
       "cleanlinessGain": 0,
       "repGain": 0,
@@ -321,7 +333,7 @@
     },
     {
       "id": "wash",
-      "label": "Вымыть Соломона",
+      "label": "Помыться",
       "icon": "ui/spend-shower",
       "cost": 200,
       "minutes": 40,
@@ -349,23 +361,6 @@
       "hungerGain": 0,
       "cleanlinessGain": 0,
       "repGain": 1,
-      "category": "быт",
-      "preparesMeal": false,
-      "requires": null
-    },
-    {
-      "id": "shower",
-      "label": "Помыться",
-      "icon": "ui/hygiene",
-      "cost": 0,
-      "minutes": 30,
-      "location": "bathroom",
-      "moodGain": 2,
-      "energyCost": 8,
-      "energyGain": 0,
-      "hungerGain": 0,
-      "cleanlinessGain": 40,
-      "repGain": 0,
       "category": "быт",
       "preparesMeal": false,
       "requires": null
@@ -520,7 +515,6 @@
     "note": "Разбор расходов: покрытие обязательных трат, доля необязательных, долг, подушка, остаток в кошельке."
   },
   "rules": {
-    "weeklyShiftCap": 10,
     "burnoutMood": 25,
     "burnoutRate": 0.7,
     "boringDaily": 2,
@@ -531,7 +525,12 @@
     "sleepPerDay": 1,
     "petPerDay": 3,
     "washPerDay": 1,
+    "laundryPerDay": 1,
     "mealsPerDay": 2,
+    "mealServings": 3,
+    "mealKeepsDays": 2,
+    "funPerDay": 1,
+    "noFunMoodPenalty": 12,
     "repCap": 5,
     "cleanAt": 67,
     "dirtyAt": 33,
@@ -543,7 +542,9 @@
     "hygienePenalty": 3,
     "note": "Константы модели. Должны совпадать с scripts/balance_sim.py.",
     "classesEnergyCost": 25,
-    "classesMoodCost": 1,
+    "classesMoodCost": 3,
+    "classesHungerCost": 15,
+    "classesCleanlinessCost": 5,
     "classesMinutes": 360,
     "lessonStreakForTutor": 3,
     "lessonMoodGain": 3,
@@ -551,7 +552,10 @@
     "lessonProblemsAfter": 3,
     "moodForFun": 40,
     "neglectHunger": 25,
-    "neglectDaysToLose": 2,
+    "collapseDaysToBill": 2,
+    "treatmentCost": 1500,
+    "sickMoodCost": 5,
+    "sickEnergyCost": 10,
     "cleanFactorGood": 1.0,
     "cleanFactorWeak": 0.7,
     "cleanFactorBad": 0.45
@@ -568,7 +572,8 @@
   "entertainmentSpends": [
     "kino",
     "park",
-    "tiktok"
+    "tiktok",
+    "computer"
   ],
   "locations": {
     "city": {
@@ -639,9 +644,9 @@
     }
   },
   "tabLocations": {
-    "work": "city",
     "spend": "arbat",
-    "solomon": "bathroom"
+    "solomon": "bathroom",
+    "wallet": "dorm"
   },
   "day": {
     "startMinutes": 360,
@@ -658,7 +663,8 @@
       "cost": 0,
       "minutes": 40,
       "energyCost": 10,
-      "dirt": 5,
+      "hungerCost": 5,
+      "dirt": 8,
       "moodGain": -1
     },
     {
@@ -668,7 +674,8 @@
       "cost": 35,
       "minutes": 35,
       "energyCost": 3,
-      "dirt": 0,
+      "hungerCost": 5,
+      "dirt": 3,
       "moodGain": 0
     },
     {
@@ -678,7 +685,8 @@
       "cost": 150,
       "minutes": 15,
       "energyCost": 3,
-      "dirt": 0,
+      "hungerCost": 5,
+      "dirt": 2,
       "moodGain": 1
     }
   ]

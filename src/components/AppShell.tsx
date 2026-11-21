@@ -178,7 +178,7 @@ export default function AppShell({ children, immersive = false }: ShellProps) {
       <main
         className={
           immersive
-            ? "mx-auto w-full max-w-3xl px-3 py-4 sm:px-4"
+            ? "w-full p-0"
             : "mx-auto max-w-xl px-4 py-6"
         }
       >

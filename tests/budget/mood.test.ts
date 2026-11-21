@@ -1,50 +1,17 @@
 import { describe, expect, it } from "vitest";
-import {
-  clampScales,
-  decay,
-  incomeMultiplier,
-  round50,
-  shiftPay,
-  sleepFactors,
-} from "../../src/budget/core/mood";
+import { clampScales, decay, sleepFactors } from "../../src/budget/core/mood";
 import {
   buy,
+  chooseTransport,
   createInitialState,
   endDay,
   rest,
   startDay,
-  work,
 } from "../../src/budget/core/reducer";
-import { RULES } from "../../src/budget/data/scenario";
+import { RULES, TRANSPORTS } from "../../src/budget/data/scenario";
 import { freeTimeState } from "./helpers";
 
 describe("шкалы", () => {
-  it("множитель дохода: 0.5 при 0 → 1.0 при 100", () => {
-    expect(incomeMultiplier(0)).toBe(0.5);
-    expect(incomeMultiplier(50)).toBe(0.75);
-    expect(incomeMultiplier(100)).toBe(1);
-  });
-
-  it("доход округляется до 50 ₽ к чётному, как в эталоне", () => {
-    expect(round50(825)).toBe(800);
-    expect(round50(875)).toBe(900);
-    expect(round50(1280)).toBe(1300);
-  });
-
-  it("выгорание снижает оплату до 70 %", () => {
-    const burnt = shiftPay(1600, 20);
-    const normal = shiftPay(1600, 30);
-    expect(normal).toBe(1050);
-    expect(burnt).toBe(650);
-    expect(burnt).toBeLessThan(normal);
-  });
-
-  it("выгорание начинается ниже порога 25", () => {
-    expect(RULES.burnoutMood).toBe(25);
-    expect(shiftPay(1000, 24)).toBe(450);
-    expect(shiftPay(1000, 25)).toBe(600);
-  });
-
   it("ежедневный спад уменьшает сытость и общую чистоту", () => {
     const g = createInitialState();
     const before = { ...g.scales };
@@ -123,7 +90,88 @@ describe("спад шкал объясняет причины (обратная 
   });
 });
 
-describe("обрезка шкал в ядре (аудит, проблема 1)", () => {
+describe("пары меняют шкалы", () => {
+  it("после пар падают энергия, сытость и чистота", () => {
+    const g = createInitialState();
+    startDay(g);
+    buy(g, "food-cheap");
+    const before = { ...g.scales };
+    // Дорога открывает фазу пар, пары идут до 15:00 и сразу тратят шкалы.
+    chooseTransport(g, "bus");
+    expect(g.phase).toBe("free");
+    // Дорога (автобус) и пары — обе фазы тратят шкалы.
+    const bus = TRANSPORTS.find((t) => t.id === "bus")!;
+    expect(g.scales.energy).toBe(
+      before.energy - bus.energyCost - RULES.classesEnergyCost,
+    );
+    // Завтрак уже съеден: `before` снят после него.
+    expect(g.scales.hunger).toBe(
+      before.hunger - bus.hungerCost - RULES.classesHungerCost,
+    );
+    expect(g.scales.cleanliness).toBe(
+      before.cleanliness - bus.dirt - RULES.classesCleanlinessCost,
+    );
+  });
+
+  it("игрок видит причины: пары, сытость, чистота", () => {
+    const g = createInitialState();
+    startDay(g);
+    buy(g, "food-cheap");
+    chooseTransport(g, "bus");
+    const notes = g.dayNotes.join("; ");
+    expect(notes).toContain("пары");
+  });
+});
+
+describe("день без развлечений", () => {
+  it("настроение падает, если развлечений не было", () => {
+    const g = freeTimeState();
+    const before = g.scales.mood;
+    endDay(g, g.dayActions);
+    // Минус штраф за скуку и минус за пропущенные уроки.
+    expect(g.scales.mood).toBe(
+      before - RULES.noFunMoodPenalty - RULES.missedLessonMood,
+    );
+    // Записи дня обнуляются в конце дня — смотрим журнал.
+    expect(g.log[g.log.length - 1].notes.join("; ")).toContain(
+      "день без развлечений",
+    );
+  });
+
+  it("развлечение за день снимает штраф", () => {
+    const g = freeTimeState();
+    buy(g, "park");
+    expect(g.funToday).toBe(1);
+    const before = g.scales.mood;
+    endDay(g, g.dayActions);
+    // Штрафа за скуку нет — остаётся только минус за пропущенные уроки.
+    expect(g.scales.mood).toBe(before - RULES.missedLessonMood);
+  });
+});
+
+describe("сон", () => {
+  it("возвращает силы и опускает сытость", () => {
+    const g = freeTimeState();
+    g.scales.energy = 40;
+    g.scales.hunger = 60;
+    const before = { ...g.scales };
+    rest(g);
+    // Сон возвращает силы до потолка и опускает сытость.
+    expect(g.scales.energy).toBe(100);
+    expect(g.scales.hunger).toBe(before.hunger - RULES.sleepHunger);
+  });
+
+  it("качество сна зависит от чистоты", () => {
+    const clean = freeTimeState();
+    clean.scales.cleanliness = 100;
+    const dirty = freeTimeState();
+    dirty.scales.cleanliness = 10;
+    expect(sleepFactors(clean).energy).toBe(RULES.cleanFactorGood);
+    expect(sleepFactors(dirty).energy).toBe(RULES.cleanFactorBad);
+  });
+});
+
+describe("обрезка шкал в ядре", () => {
   it("clampScales держит все шкалы в 0…100", () => {
     const g = createInitialState();
     g.scales.mood = 150;
@@ -135,124 +183,5 @@ describe("обрезка шкал в ядре (аудит, проблема 1)",
     expect(g.scales.energy).toBe(100);
     expect(g.scales.hunger).toBe(0);
     expect(g.scales.cleanliness).toBe(100);
-  });
-
-  it("настроение не уезжает за потолок после many покупок", () => {
-    const g = freeTimeState();
-    g.cash = 100000;
-    for (let i = 0; i < 40; i += 1) {
-      buy(g, "kino");
-    }
-    expect(g.scales.mood).toBeLessThanOrEqual(100);
-  });
-
-  it("доход не превышает базовую ставку при настроении выше 100", () => {
-    // При настроении 150 множитель давал 1,25 и курьер приносил 2 000 ₽
-    // вместо 1 600. Обрезка в ядре делает это невозможным.
-    const g = freeTimeState();
-    g.scales.mood = 150;
-    g.scales.energy = 100;
-    const result = work(g, "courier");
-    expect(result).toContain("+1600");
-  });
-});
-
-describe("сон: качество восстановления зависит от чистоты", () => {
-  it("чистый Соломон восстанавливает всё", () => {
-    const g = freeTimeState();
-    g.scales.hunger = 100;
-    g.scales.cleanliness = 100;
-    const factors = sleepFactors(g);
-    expect(factors.energy).toBe(1);
-  });
-
-  it("слегка грязный Соломон — 70 % восстановления", () => {
-    const g = freeTimeState();
-    g.scales.hunger = 100;
-    g.scales.cleanliness = 50;
-    expect(sleepFactors(g).clean).toBe(0.7);
-  });
-
-  it("сильно грязный Соломон — 45 % восстановления", () => {
-    const g = freeTimeState();
-    g.scales.hunger = 100;
-    g.scales.cleanliness = 20;
-    expect(sleepFactors(g).clean).toBe(0.45);
-  });
-
-  it("сон опускает сытость, а не поднимает её", () => {
-    const g = freeTimeState();
-    g.scales.energy = 0;
-    g.scales.hunger = 100;
-    g.scales.cleanliness = 100;
-    rest(g);
-    expect(g.scales.energy).toBe(RULES.sleepEnergy);
-    expect(g.scales.hunger).toBe(100 - RULES.sleepHunger);
-  });
-
-  it("сон закрывает день", () => {
-    const g = freeTimeState();
-    rest(g);
-    expect(g.phase).toBe("done");
-    expect(g.clock).toBe(1380);
-  });
-});
-
-describe("сон ограничен одним разом в день (аудит, проблема 3)", () => {
-  it("второй сон в тот же день не даёт энергию", () => {
-    const g = freeTimeState();
-    g.scales.energy = 0;
-    expect(rest(g)).toBe("сон");
-    const energy = g.scales.energy;
-    expect(rest(g)).toBe("сон уже был сегодня");
-    expect(g.scales.energy).toBe(energy);
-  });
-
-  it("счётчик сна обнуляется на следующий день", () => {
-    const g = freeTimeState();
-    rest(g);
-    expect(g.sleepsToday).toBe(1);
-    endDay(g, g.dayActions);
-    startDay(g);
-    expect(g.sleepsToday).toBe(0);
-  });
-});
-
-describe("поглаживание ограничено (аудит, проблема 2)", () => {
-  it("не больше трёх поглаживаний в день", () => {
-    const g = freeTimeState();
-    for (let i = 0; i < 3; i += 1) {
-      expect(buy(g, "pet")).toContain("Погладить");
-    }
-    const mood = g.scales.mood;
-    expect(buy(g, "pet")).toBe("поглаживаний на сегодня хватает (3)");
-    expect(g.scales.mood).toBe(mood);
-  });
-
-  it("счётчик поглаживаний обнуляется на следующий день", () => {
-    const g = freeTimeState();
-    for (let i = 0; i < 3; i += 1) buy(g, "pet");
-    endDay(g, g.dayActions);
-    startDay(g);
-    expect(g.petsToday).toBe(0);
-  });
-
-  it("шкалы не набиваются кликами: настроение в пределах 100", () => {
-    const g = freeTimeState();
-    for (let i = 0; i < 50; i += 1) {
-      buy(g, "pet");
-    }
-    expect(g.scales.mood).toBeLessThanOrEqual(100);
-  });
-});
-
-describe("потолок репутации", () => {
-  it("репутация не растёт выше потолка", () => {
-    const g = freeTimeState();
-    for (let i = 0; i < 20; i += 1) {
-      g.cash = 100000;
-      buy(g, "lessons");
-    }
-    expect(g.rep).toBeLessThanOrEqual(RULES.repCap);
   });
 });

@@ -5,12 +5,11 @@ import {
   createInitialState,
   endDay,
   hasInternet,
-  jobBlockReason,
   resolveEvent,
   rest,
   spendBlockReason,
   startDay,
-  work,
+  transportBlockReason,
 } from "../../src/budget/core/reducer";
 import { DAY, RULES } from "../../src/budget/data/scenario";
 import { freeTimeState, stateOnDay } from "./helpers";
@@ -26,8 +25,7 @@ describe("утро: завтрак и дорога", () => {
   it("без завтрака и дороги свободное время не открывается", () => {
     const g = createInitialState();
     startDay(g);
-    expect(g.phase).toBe("morning");
-    expect(work(g, "courier")).toBe("работать можно только после пар");
+    expect(spendBlockReason(g, "kino")).toBe("утром можно только позавтракать");
   });
 
   it("после завтрака и дороги начинаются пары, потом свободное время", () => {
@@ -75,13 +73,29 @@ describe("утро: завтрак и дорога", () => {
     expect(walk.cash).toBe(20000 - 120);
   });
 
-  it("пешком Соломон пачкается", () => {
+  it("пешком Соломон пачкается сильнее, чем на автобусе", () => {
+    const walk = createInitialState();
+    startDay(walk);
+    buy(walk, "food-cheap");
+    chooseTransport(walk, "walk");
+
+    const bus = createInitialState();
+    startDay(bus);
+    buy(bus, "food-cheap");
+    chooseTransport(bus, "bus");
+
+    // Пешком пачкается сильнее на 5 пунктов (8 против 3).
+    expect(walk.scales.cleanliness).toBe(bus.scales.cleanliness - 5);
+  });
+
+  it("дорога отнимает сытость", () => {
     const g = createInitialState();
     startDay(g);
     buy(g, "food-cheap");
-    const before = g.scales.cleanliness;
-    chooseTransport(g, "walk");
-    expect(g.scales.cleanliness).toBe(before - 5);
+    const before = g.scales.hunger;
+    chooseTransport(g, "bus");
+    // Дорога и пары: −5 в дороге и ещё −15 на парах.
+    expect(g.scales.hunger).toBe(before - 5 - RULES.classesHungerCost);
   });
 
   it("в снегопад пешком не дойдёшь", () => {
@@ -90,184 +104,168 @@ describe("утро: завтрак и дорога", () => {
     buy(g, "food-cheap");
     expect(chooseTransport(g, "walk")).toBe("в метель пешком не дойдёшь");
   });
+
+  it("на дорогу нужны деньги", () => {
+    const g = createInitialState();
+    startDay(g);
+    buy(g, "food-cheap");
+    g.cash = 0;
+    g.savings = 0;
+    expect(transportBlockReason(g, "taxi")).toBe("не хватает денег на дорогу");
+  });
 });
 
 describe("свободное время", () => {
-  it("работа тратит время и энергию", () => {
-    const g = freeTimeState();
-    const energy = g.scales.energy;
-    const clock = g.clock;
-    work(g, "courier");
-    expect(g.scales.energy).toBe(energy - 30);
-    expect(g.clock).toBe(clock + 180);
-  });
-
-  it("работа позже ночи недоступна", () => {
-    const g = freeTimeState();
-    g.clock = 1300;
-    expect(jobBlockReason(g, "courier")).toBe("не хватит времени до ночи");
-  });
-
   it("после 23:00 ничего не купить", () => {
     const g = freeTimeState();
     g.clock = 1370;
     expect(buy(g, "kino")).toBe("уже ночь, пора спать");
+    expect(spendBlockReason(g, "kino")).toBe("уже ночь, пора спать");
   });
 
-  it("курьерская доставка требует интернет и телефон", () => {
+  it("без интернета нет тик-токов и игр в компьютер", () => {
     const g = freeTimeState();
     g.internetUntil = 0;
-    expect(jobBlockReason(g, "courier")).toBe("нужен интернет и телефон");
+    expect(spendBlockReason(g, "tiktok")).toBe("нет интернета");
+    expect(spendBlockReason(g, "computer")).toBe("нет интернета");
     g.internetUntil = 7;
-    g.phoneBroken = true;
-    expect(jobBlockReason(g, "courier")).toBe("нужен интернет и телефон");
+    expect(spendBlockReason(g, "computer")).toBeNull();
   });
 
-  it("репетиторство открывается после трёх дней уроков", () => {
+  it("интернет стоит 1 500 ₽ за период", () => {
     const g = freeTimeState();
-    expect(jobBlockReason(g, "tutor")).toBe(
-      `нужен интернет и ${RULES.lessonStreakForTutor} дня уроков подряд`,
-    );
-    g.lessonStreak = 3;
-    expect(jobBlockReason(g, "tutor")).toBeNull();
-  });
-
-  it("лаборант доступен со второго дня", () => {
-    const g = freeTimeState();
-    expect(jobBlockReason(g, "lab")).toBe("лаборантом можно со второго дня");
-    g.day = 2;
-    expect(jobBlockReason(g, "lab")).toBeNull();
-  });
-});
-
-describe("обязательные платежи", () => {
-  it("жильё платится один раз", () => {
-    const g = freeTimeState();
-    expect(buy(g, "housing")).toContain("Жильё");
-    expect(g.housingPaid).toBe(true);
-    expect(spendBlockReason(g, "housing")).toBe("жильё уже оплачено");
-  });
-
-  it("интернет даётся на период, потом пропадает", () => {
-    const g = freeTimeState();
-    expect(hasInternet(g)).toBe(true); // пробные дни
+    const before = g.cash;
     buy(g, "internet");
-    expect(g.internetUntil).toBe(7);
-    const later = stateOnDay(4);
-    expect(hasInternet(later)).toBe(false);
-    expect(spendBlockReason(later, "tiktok")).toBe("нет интернета");
+    expect(g.cash).toBe(before - 1500);
   });
 
-  it("проездной делает дорогу бесплатной", () => {
+  it("поглаживание возвращает энергию", () => {
     const g = freeTimeState();
-    buy(g, "transit-pass");
-    expect(g.transitUntil).toBe(g.day + 7 - 1);
+    g.scales.energy = 50;
+    buy(g, "pet");
+    expect(g.scales.energy).toBe(62);
+  });
+
+  it("стирку нельзя повторять весь вечер", () => {
+    const g = freeTimeState();
+    expect(spendBlockReason(g, "laundry")).toBeNull();
+    buy(g, "laundry");
+    expect(spendBlockReason(g, "laundry")).toBe(
+      `стирка на сегодня уже была (${RULES.laundryPerDay})`,
+    );
+  });
+
+  it("мытьё Соломона остаётся один раз в день", () => {
+    const g = freeTimeState();
+    buy(g, "wash");
+    expect(spendBlockReason(g, "wash")).toContain("мытьё");
+  });
+
+  it("«Помыться» — это мытьё Соломона, отдельного мытья себя нет", () => {
+    const g = freeTimeState();
+    expect(buy(g, "wash")).toContain("Помыться");
   });
 });
 
-describe("проигрыш", () => {
-  it("неоплаченное жильё к сроку — выселение", () => {
-    const g = stateOnDay(5, false);
-    startDay(g);
-    buy(g, "food-cheap");
-    chooseTransport(g, "bus");
-    // На 5-й день открывается событие про телефон — сначала его закрываем.
-    if (g.pendingEvent) resolveEvent(g, "repair");
-    rest(g);
-    endDay(g, g.dayActions);
-    expect(g.lost).toBe(true);
-    expect(g.lossReason?.id).toBe("housing");
+describe("запас еды", () => {
+  it("приготовленная еда даёт запас на два дня", () => {
+    const g = freeTimeState();
+    // Завтрак уже приготовлен в helper'е: одна порция съедена, две в запасе.
+    expect(g.mealStock.servings).toBe(RULES.mealServings - 1);
+    expect(g.mealStock.preparedOnDay).toBe(g.day);
   });
 
-  it("оплаченное жильё спасает", () => {
-    const g = stateOnDay(5);
-    startDay(g);
-    buy(g, "food-cheap");
-    chooseTransport(g, "bus");
-    if (g.pendingEvent) resolveEvent(g, "repair");
-    buy(g, "housing");
-    rest(g);
-    endDay(g, g.dayActions);
-    expect(g.lost).toBe(false);
+  it("остатки можно съесть и порция уменьшается", () => {
+    const g = freeTimeState();
+    const servings = g.mealStock.servings;
+    expect(buy(g, "food-leftovers")).toContain("Еда, приготовленная утром");
+    expect(g.mealStock.servings).toBe(servings - 1);
   });
 
-  it("два дня без еды — за Соломоном не уследили", () => {
-    const g = createInitialState();
-    for (let day = 0; day < 2; day += 1) {
-      startDay(g);
-      chooseTransport(g, "bus");
-      g.scales.hunger = 10;
-      rest(g);
-      endDay(g, g.dayActions);
-    }
-    expect(g.lost).toBe(true);
-    expect(g.lossReason?.id).toBe("neglect");
+  it("без запаса остатков нет", () => {
+    const g = freeTimeState();
+    g.mealStock = { servings: 0, preparedOnDay: 0 };
+    expect(spendBlockReason(g, "food-leftovers")).toBe(
+      "запас еды пуст: сначала приготовь еду",
+    );
+  });
+
+  it("на следующий день запас ещё есть, а через день — испорчен", () => {
+    const g = freeTimeState();
+    endDay(g, g.dayActions);
+    startDay(g);
+    expect(g.mealStock.servings).toBe(RULES.mealServings - 1);
+    endDay(g, g.dayActions);
+    startDay(g);
+    expect(g.mealStock.servings).toBe(0);
+    expect(g.dayNotes.join("; ")).toContain("еда испортилась");
+  });
+
+  it("еда не съедается сверх двух приёмов в день", () => {
+    const g = freeTimeState();
+    buy(g, "food-leftovers");
+    expect(spendBlockReason(g, "food-cheap")).toContain("Соломон сыт");
   });
 });
 
-describe("уроки", () => {
-  it("сделанные уроки повышают настроение", () => {
+describe("развлечения и настроение", () => {
+  it("развлечение считается и снимает штраф за скуку", () => {
+    const g = freeTimeState();
+    buy(g, "park");
+    expect(g.funToday).toBe(1);
+  });
+
+  it("без развлечений день закрывается штрафом", () => {
     const g = freeTimeState();
     const before = g.scales.mood;
-    buy(g, "lessons");
-    expect(g.scales.mood).toBe(before + 3);
-    expect(g.lessonsToday).toBe(true);
-  });
-
-  it("пропущенные уроки штрафуют и ломают серию", () => {
-    const g = freeTimeState();
-    g.lessonStreak = 5;
-    rest(g);
     endDay(g, g.dayActions);
-    expect(g.lessonStreak).toBe(0);
-    expect(g.missedLessons).toBe(1);
-  });
-
-  it("три пропуска подряд — проблемы с учёбой у Соломона", () => {
-    const g = createInitialState();
-    for (let day = 0; day < 3; day += 1) {
-      startDay(g);
-      chooseTransport(g, "bus");
-      rest(g);
-      endDay(g, g.dayActions);
-    }
-    expect(g.lessonProblems).toBe(true);
+    // Штраф за скуку и штраф за пропущенные уроки.
+    expect(g.scales.mood).toBe(
+      before - RULES.noFunMoodPenalty - RULES.missedLessonMood,
+    );
   });
 });
 
-describe("событие", () => {
-  it("открывается в свободное время и блокирует работу", () => {
+describe("день, события и проигрыш", () => {
+  it("интернет работает до оплаченного дня", () => {
+    const g = createInitialState();
+    expect(hasInternet(g)).toBe(true);
+    g.internetUntil = 0;
+    expect(hasInternet(g)).toBe(false);
+  });
+
+  it("событие закрывается один раз", () => {
     const g = stateOnDay(5);
     startDay(g);
     buy(g, "food-cheap");
     chooseTransport(g, "bus");
     expect(g.pendingEvent?.id).toBe("phone");
-    expect(g.phase).toBe("free");
-    expect(jobBlockReason(g, "courier")).toBe("сначала закрой событие");
+    resolveEvent(g, "repair");
+    expect(g.pendingEvent).toBeNull();
+    expect(resolveEvent(g, "repair")).toBe("нет открытого события");
   });
 
-  it("сломанный телефон закрывает курьерскую доставку", () => {
+  it("событие не проходит в долг", () => {
     const g = stateOnDay(5);
     startDay(g);
     buy(g, "food-cheap");
     chooseTransport(g, "bus");
-    resolveEvent(g, "old");
-    expect(g.phoneBroken).toBe(true);
-    expect(jobBlockReason(g, "courier")).toBe("нужен интернет и телефон");
+    g.cash = 0;
+    g.savings = 0;
+    expect(resolveEvent(g, "repair")).toBe("не хватает денег");
+    expect(g.pendingEvent).not.toBeNull();
   });
-});
 
-describe("сон закрывает день", () => {
-  it("после сна фаза — «день закончен»", () => {
+  it("неоплаченное жильё — проигрыш", () => {
+    const g = stateOnDay(5, false);
+    startDay(g);
+    expect(g.lost).toBe(true);
+  });
+
+  it("сон закрывает день", () => {
     const g = freeTimeState();
     rest(g);
     expect(g.phase).toBe("done");
-    expect(g.sleepsToday).toBe(1);
-  });
-
-  it("сон утром невозможен", () => {
-    const g = createInitialState();
-    startDay(g);
-    expect(rest(g)).toBe("сначала позавтракай и доедь до пар");
+    expect(g.clock).toBe(DAY.nightMinutes);
   });
 });

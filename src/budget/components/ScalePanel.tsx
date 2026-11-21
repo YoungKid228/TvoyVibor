@@ -34,7 +34,7 @@ const SCALES: ScaleDef[] = [
     key: "mood",
     label: "Настроение",
     short: "Настр.",
-    hint: "Шкала счастья: чем выше, тем больше смены платят.",
+    hint: "Шкала счастья: чем выше, тем больше сил на день.",
     color: "#f97316",
     primary: true,
     icon: "ui/mood",
@@ -63,7 +63,7 @@ const SCALES: ScaleDef[] = [
     short: "Чистота",
     hint: "Общая чистота: игрок и Соломон. Падает на 15 в день. Мытьё — 200 ₽.",
     color: "#1d4ed8",
-    icon: "ui/spend-shower",
+    icon: "ui/hygiene",
   },
 ];
 
@@ -73,7 +73,7 @@ type Props = {
 
 export default function ScalePanel({ scales }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-4 gap-1.5">
       {SCALES.map((scale) => (
         <ScaleBar
           key={scale.key}
@@ -89,31 +89,32 @@ function ScaleBar({ def, value }: { def: ScaleDef; value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
     <div
-      className="rounded-lg border border-stone-300 bg-white p-2"
+      className="rounded-lg border border-stone-300 bg-white p-1.5 shadow-[0_2px_0_rgba(0,0,0,0.18)]"
       title={def.hint}
     >
-      <div className="flex items-baseline justify-between gap-1">
-        <span className="flex min-w-0 items-center gap-1">
-          <Icon
-            name={def.iconByValue ? def.iconByValue(clamped) : def.icon}
-            alt=""
-            size={14}
-            className="flex-shrink-0"
-          />
-          <span
-            className={`text-[11px] leading-tight ${
-              def.primary ? "font-bold text-orange-700" : "text-stone-600"
-            }`}
-          >
-            {def.short}
-          </span>
-        </span>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-stone-700">
+      {/* Иконка и значение — в одну строку, подпись — под ними: на узком
+          телефоне четыре карточки в ряд, и подпись в одну строку с числом
+          обрезалась. */}
+      <div className="flex items-center justify-between gap-1">
+        <Icon
+          name={def.iconByValue ? def.iconByValue(clamped) : def.icon}
+          alt=""
+          size={16}
+          className="flex-shrink-0"
+        />
+        <span className="shrink-0 font-mono text-xs font-bold tabular-nums text-stone-800">
           {clamped}
         </span>
       </div>
       <div
-        className="mt-1 h-2.5 w-full overflow-hidden rounded border border-stone-300 bg-stone-100"
+        className={`truncate text-[10px] leading-tight ${
+          def.primary ? "font-bold text-orange-700" : "text-stone-600"
+        }`}
+      >
+        {def.short}
+      </div>
+      <div
+        className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200"
         role="progressbar"
         aria-label={def.label}
         aria-valuenow={clamped}
@@ -121,7 +122,7 @@ function ScaleBar({ def, value }: { def: ScaleDef; value: number }) {
         aria-valuemax={100}
       >
         <div
-          className="h-full"
+          className="h-full rounded-full"
           style={{ width: `${clamped}%`, backgroundColor: def.color }}
         />
       </div>
